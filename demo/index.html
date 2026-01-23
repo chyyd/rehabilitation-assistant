@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>康复科助手 - 系统演示</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <header class="navbar">
+            <div class="navbar-left">
+                <div class="app-icon">🏥</div>
+                <h1 class="app-title">康复科助手</h1>
+            </div>
+            <div class="navbar-center">
+                <span class="current-date">2025年1月23日 星期四</span>
+            </div>
+            <div class="navbar-right">
+                <button class="nav-btn" onclick="showReminders()">
+                    <span class="icon">🔔</span>
+                    <span class="badge" id="reminder-badge">5</span>
+                </button>
+                <button class="nav-btn primary-btn" onclick="showNewPatientModal()">
+                    <span class="icon">➕</span>
+                    <span class="btn-text">新患者</span>
+                </button>
+                <button class="nav-btn" onclick="showSettings()">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左栏：患者列表 -->
+            <aside class="sidebar-left">
+                <div class="section-header">
+                    <h2>今日待办</h2>
+                    <span class="count-badge">12</span>
+                </div>
+
+                <div class="patient-list">
+                    <!-- 紧急患者 -->
+                    <div class="patient-card urgent" onclick="selectPatient('patient1')">
+                        <div class="patient-header">
+                            <span class="priority-icon">🚨</span>
+                            <div class="patient-info">
+                                <div class="patient-name">张三</div>
+                                <div class="patient-meta">第85天 | 20241234</div>
+                            </div>
+                        </div>
+                        <div class="patient-diagnosis">脑梗死恢复期</div>
+                        <div class="patient-reminders">
+                            <span class="reminder-tag">⚠️ 住院第85天</span>
+                            <span class="reminder-tag">📝 查房记录</span>
+                        </div>
+                    </div>
+
+                    <!-- 高优先级 -->
+                    <div class="patient-card high" onclick="selectPatient('patient2')">
+                        <div class="patient-header">
+                            <span class="priority-icon">🟡</span>
+                            <div class="patient-info">
+                                <div class="patient-name">李四</div>
+                                <div class="patient-meta">第2天 | 20241235</div>
+                            </div>
+                        </div>
+                        <div class="patient-diagnosis">脊髓损伤恢复期</div>
+                        <div class="patient-reminders">
+                            <span class="reminder-tag">🔬 需看化验</span>
+                        </div>
+                    </div>
+
+                    <!-- 正常患者 -->
+                    <div class="patient-card normal" onclick="selectPatient('patient3')">
+                        <div class="patient-header">
+                            <span class="priority-icon">🟢</span>
+                            <div class="patient-info">
+                                <div class="patient-name">王五</div>
+                                <div class="patient-meta">第15天 | 20241236</div>
+                            </div>
+                        </div>
+                        <div class="patient-diagnosis">颅脑损伤恢复期</div>
+                        <div class="patient-reminders">
+                            <span class="reminder-tag">📝 常规记录</span>
+                        </div>
+                    </div>
+
+                    <div class="patient-card normal" onclick="selectPatient('patient4')">
+                        <div class="patient-header">
+                            <span class="priority-icon">🟢</span>
+                            <div class="patient-info">
+                                <div class="patient-name">赵六</div>
+                                <div class="patient-meta">第28天 | 20241237</div>
+                            </div>
+                        </div>
+                        <div class="patient-diagnosis">脑出血恢复期</div>
+                        <div class="patient-reminders">
+                            <span class="reminder-tag">📝 常规记录</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 中栏：工作区 -->
+            <main class="workspace">
+                <!-- 患者信息卡片 -->
+                <div class="info-card">
+                    <h3>患者信息</h3>
+                    <div class="patient-details">
+                        <div class="detail-row">
+                            <span class="label">住院号：</span>
+                            <span class="value">20241234</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">姓名：</span>
+                            <span class="value">张三</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">性别：</span>
+                            <span class="value">男</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">年龄：</span>
+                            <span class="value">65岁</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">入院：</span>
+                            <span class="value">2024-10-30 (第85天)</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">诊断：</span>
+                            <span class="value">脑梗死恢复期</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 今日任务 -->
+                <div class="info-card">
+                    <h3>今日任务 <span class="task-count">(2项)</span></h3>
+                    <div class="task-list">
+                        <div class="task-item urgent">
+                            <span class="task-icon">⚠️</span>
+                            <span class="task-text">住院第85天，注意90天限制</span>
+                        </div>
+                        <div class="task-item normal">
+                            <span class="task-icon">📝</span>
+                            <span class="task-text">需书写主治医师查房记录</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 病程记录生成 -->
+                <div class="info-card main-card">
+                    <h3>病程记录生成</h3>
+
+                    <div class="toolbar">
+                        <button class="tool-btn" onclick="showHistory()">
+                            <span class="icon">📋</span>
+                            <span class="btn-label">查看历史</span>
+                        </button>
+                        <button class="tool-btn" onclick="searchKnowledge()">
+                            <span class="icon">🔍</span>
+                            <span class="btn-label">搜索资料</span>
+                        </button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>当日情况：</label>
+                        <textarea
+                            id="daily-condition"
+                            class="text-input"
+                            placeholder="请输入患者今日情况，例如：患者右上肢肌力较前改善，可完成抓握动作，继续康复训练..."
+                            rows="4"
+                        ></textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="action-btn primary" onclick="generateNote()">
+                            <span class="icon">✨</span>
+                            <span class="btn-label">AI生成</span>
+                        </button>
+                        <button class="action-btn" onclick="saveNote()">
+                            <span class="icon">💾</span>
+                            <span class="btn-label">保存</span>
+                        </button>
+                        <button class="action-btn" onclick="exportNote()">
+                            <span class="icon">📄</span>
+                            <span class="btn-label">导出txt</span>
+                        </button>
+                    </div>
+
+                    <div class="preview-section">
+                        <label>AI生成预览：</label>
+                        <div
+                            id="preview-content"
+                            class="preview-box"
+                            contenteditable="true"
+                            data-placeholder="AI生成的病程记录将显示在这里，可直接编辑..."
+                        ></div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- 右栏：快速工具 -->
+            <aside class="sidebar-right">
+                <div class="quick-tools">
+                    <h3>快速模板</h3>
+
+                    <div class="template-selectors">
+                        <div class="selector-group">
+                            <label class="selector-label">诊断模板</label>
+                            <select class="template-select" onchange="insertTemplate('diagnosis', this.value)">
+                                <option value="">选择诊断...</option>
+                                <option value="脑梗死恢复期">脑梗死恢复期</option>
+                                <option value="脊髓损伤恢复期">脊髓损伤恢复期</option>
+                                <option value="颅脑损伤恢复期">颅脑损伤恢复期</option>
+                            </select>
+                        </div>
+
+                        <div class="selector-group">
+                            <label class="selector-label">处理意见</label>
+                            <select class="template-select" onchange="insertTemplate('treatment', this.value)">
+                                <option value="">选择处理...</option>
+                                <option value="继续康复训练">继续康复训练</option>
+                                <option value="调整康复方案">调整康复方案</option>
+                                <option value="观察病情变化">观察病情变化</option>
+                            </select>
+                        </div>
+
+                        <div class="selector-group">
+                            <label class="selector-label">宣教内容</label>
+                            <select class="template-select" onchange="insertTemplate('education', this.value)">
+                                <option value="">选择宣教...</option>
+                                <option value="饮食宣教">饮食宣教</option>
+                                <option value="功能锻炼指导">功能锻炼指导</option>
+                                <option value="安全防护指导">安全防护指导</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="common-phrases">
+                        <h4>常用短语</h4>
+                        <div class="phrase-list">
+                            <div class="phrase-item" onclick="insertPhrase('患者神志清，精神可')">
+                                患者神志清，精神可
+                            </div>
+                            <div class="phrase-item" onclick="insertPhrase('继续康复训练')">
+                                继续康复训练
+                            </div>
+                            <div class="phrase-item" onclick="insertPhrase('家属配合')">
+                                家属配合
+                            </div>
+                            <div class="phrase-item" onclick="insertPhrase('查体同前')">
+                                查体同前
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="recent-records">
+                        <h4>最近的记录</h4>
+                        <div class="record-list">
+                            <div class="record-item" onclick="loadRecord('01-22')">
+                                01-22 主治医师查房
+                            </div>
+                            <div class="record-item" onclick="loadRecord('01-19')">
+                                01-19 住院医师查房
+                            </div>
+                            <div class="record-item" onclick="loadRecord('01-16')">
+                                01-16 主任医师查房
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- 新患者模态框 -->
+    <div id="newPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>创建新患者</h2>
+                <button class="close-btn" onclick="closeModal('newPatientModal')">×</button>
+            </div>
+
+            <!-- 步骤指示器 -->
+            <div class="step-indicator">
+                <div class="step active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">住院号</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">病程记录</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">确认信息</span>
+                </div>
+            </div>
+
+            <!-- 步骤1：输入住院号 -->
+            <div id="step1" class="step-content active">
+                <h3>步骤 1/3：输入住院号</h3>
+                <div class="form-group">
+                    <label>住院号：</label>
+                    <input
+                        type="text"
+                        id="hospital-number"
+                        class="text-input large-input"
+                        placeholder="请输入住院号（从HIS系统获取）"
+                    >
+                </div>
+                <div class="step-actions">
+                    <button class="action-btn primary" onclick="goToStep(2)">
+                        下一步
+                    </button>
+                </div>
+            </div>
+
+            <!-- 步骤2：粘贴首次病程记录 -->
+            <div id="step2" class="step-content">
+                <h3>步骤 2/3：粘贴首次病程记录</h3>
+                <div class="form-group">
+                    <label>首次病程记录：</label>
+                    <textarea
+                        id="initial-note"
+                        class="text-input large-textarea"
+                        placeholder="请粘贴首次病程记录（Ctrl+V）"
+                        rows="12"
+                    ></textarea>
+                </div>
+                <div class="step-actions">
+                    <button class="action-btn" onclick="goToStep(1)">
+                        上一步
+                    </button>
+                    <button class="action-btn primary" onclick="extractInfo()">
+                        提取信息 →
+                    </button>
+                </div>
+            </div>
+
+            <!-- 步骤3：确认提取信息 -->
+            <div id="step3" class="step-content">
+                <h3>步骤 3/3：确认提取信息</h3>
+                <div class="extracted-info">
+                    <div class="info-item">
+                        <span class="info-label">住院号：</span>
+                        <span class="info-value">20241234</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">姓名：</span>
+                        <span class="info-value">张三</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">性别：</span>
+                        <span class="info-value">男</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">年龄：</span>
+                        <span class="info-value">65岁</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">入院日期：</span>
+                        <span class="info-value">2024-10-30</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">主诉：</span>
+                        <span class="info-value">右侧肢体活动不利10天</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">诊断：</span>
+                        <span class="info-value">脑梗死恢复期</span>
+                        <span class="check-icon">✓</span>
+                    </div>
+                </div>
+                <div class="step-actions">
+                    <button class="action-btn" onclick="goToStep(2)">
+                        上一步
+                    </button>
+                    <button class="action-btn primary" onclick="savePatient()">
+                        完成并保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置模态框 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h2>设置</h2>
+                <button class="close-btn" onclick="closeModal('settingsModal')">×</button>
+            </div>
+
+            <div class="settings-container">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" data-tab="ai">AI服务</button>
+                    <button class="tab-btn" data-tab="doctors">医师</button>
+                    <button class="tab-btn" data-tab="knowledge">知识库</button>
+                    <button class="tab-btn" data-tab="about">关于</button>
+                </div>
+
+                <div class="settings-content">
+                    <!-- AI服务配置 -->
+                    <div id="tab-ai" class="tab-content active">
+                        <h3>AI服务配置</h3>
+                        <div class="setting-group">
+                            <label>默认服务：</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="ai-service" value="modelscope" checked>
+                                    <span>ModelScope (魔搭)</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="ai-service" value="deepseek">
+                                    <span>DeepSeek</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="ai-service" value="kimi">
+                                    <span>Kimi</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <h4>硅基流动 Embedding API</h4>
+                            <div class="info-item">
+                                <span class="info-label">API密钥：</span>
+                                <span class="info-value">sk-...wya</span>
+                                <span class="status-badge success">✓已配置</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">嵌入模型：</span>
+                                <span class="info-value">BAAI/bge-large-zh</span>
+                            </div>
+                            <button class="action-btn">测试连接 <span class="status-badge success">✓正常</span></button>
+                        </div>
+                    </div>
+
+                    <!-- 医师配置 -->
+                    <div id="tab-doctors" class="tab-content">
+                        <h3>医师配置</h3>
+                        <div class="doctor-list">
+                            <div class="doctor-item">
+                                <span class="doctor-role">住院医师</span>
+                                <span class="doctor-name">于友达</span>
+                                <span class="check-icon">✓</span>
+                            </div>
+                            <div class="doctor-item">
+                                <span class="doctor-role">主治医师</span>
+                                <span class="doctor-name">都吉香</span>
+                                <span class="check-icon">✓</span>
+                            </div>
+                            <div class="doctor-item">
+                                <span class="doctor-role">主任医师</span>
+                                <span class="doctor-name">车永生</span>
+                                <span class="check-icon">✓</span>
+                            </div>
+                        </div>
+                        <button class="action-btn primary">➕ 添加医师</button>
+                    </div>
+
+                    <!-- 知识库配置 -->
+                    <div id="tab-knowledge" class="tab-content">
+                        <h3>知识库设置</h3>
+                        <div class="setting-group">
+                            <div class="info-item">
+                                <span class="info-label">存储路径：</span>
+                                <span class="info-value">./knowledge_base</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">已向量化：</span>
+                                <span class="info-value">15个文件，234个片段</span>
+                            </div>
+                        </div>
+                        <button class="action-btn primary">管理知识库</button>
+                    </div>
+
+                    <!-- 关于 -->
+                    <div id="tab-about" class="tab-content">
+                        <h3>关于</h3>
+                        <div class="about-info">
+                            <div class="info-item">
+                                <span class="info-label">应用名称：</span>
+                                <span class="info-value">康复科助手</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">版本：</span>
+                                <span class="info-value">v1.0.0</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">设计日期：</span>
+                                <span class="info-value">2025-01-23</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="action-btn primary" onclick="closeModal('settingsModal')">
+                    保存设置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
