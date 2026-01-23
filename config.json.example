@@ -5,24 +5,24 @@
     "database_path": "./rehab_assistant.db"
   },
   "siliconflow": {
-    "api_key": "sk-tweswtuyrbzxxjiziprqrqchpkiwyxapctgaqutocucsptqx",
+    "api_key": "your_siliconflow_api_key_here",
     "embedding_model": "BAAI/bge-large-zh-v1.5",
     "base_url": "https://api.siliconflow.cn/v1"
   },
   "ai_services": {
     "default": "modelscope",
     "modelscope": {
-      "api_key": "ms-f449b8b0-f623-4f91-9288-a1c13d38daed",
-      "model": "deepseek-ai/DeepSeek-V3.2",
-      "base_url": "https://api-inference.modelscope.cn/v1"
+      "api_key": "your_modelscope_api_key_here",
+      "model": "Qwen2.5-72B-Instruct",
+      "base_url": "https://api.modelscope.cn/v1"
     },
     "deepseek": {
-      "api_key": "",
+      "api_key": "your_deepseek_api_key_here",
       "model": "deepseek-chat",
       "base_url": "https://api.deepseek.com/v1"
     },
     "kimi": {
-      "api_key": "",
+      "api_key": "your_kimi_api_key_here",
       "model": "moonshot-v1-8k",
       "base_url": "https://api.moonshot.cn/v1"
     }
