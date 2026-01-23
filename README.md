@@ -54,12 +54,36 @@ pip install -r requirements.txt
 
 3. **配置API密钥**
 
-创建 `.env` 文件并添加您的API密钥：
-```env
-MODELSCOPE_API_KEY=your_modelscope_api_key
-DEEPSEEK_API_KEY=your_deepseek_api_key
-KIMI_API_KEY=your_kimi_api_key
+复制配置模板并填入您的API密钥：
+```bash
+cp config.json.example config.json
 ```
+
+编辑 `config.json` 文件，填入您的真实API密钥：
+```json
+{
+  "siliconflow": {
+    "api_key": "你的硅基流动API密钥"
+  },
+  "ai_services": {
+    "modelscope": {
+      "api_key": "你的魔搭API密钥"
+    },
+    "deepseek": {
+      "api_key": "你的DeepSeek API密钥"
+    },
+    "kimi": {
+      "api_key": "你的Kimi API密钥"
+    }
+  }
+}
+```
+
+**API密钥获取**：
+- 硅基流动：https://siliconflow.cn（免费）
+- 魔搭社区：https://modelscope.cn
+- DeepSeek：https://platform.deepseek.com
+- Kimi：https://platform.moonshot.cn
 
 4. **启动应用**
 ```bash
