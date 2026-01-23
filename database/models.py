@@ -4,9 +4,7 @@ SQLAlchemy数据模型定义
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, Integer, Text, Boolean, Date, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import LargeBinary
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Mapped, mapped_column, relationship, declarative_base
 
 Base = declarative_base()
 
