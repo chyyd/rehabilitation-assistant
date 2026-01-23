@@ -1,40 +1,40 @@
 """
-魔搭AI服务实现
+魔搭AI服务实现 - 使用OpenAI兼容接口
 """
-import requests
+from openai import OpenAI
 from ai_services.base_service import AIService
 
 
 class ModelScopeService(AIService):
     """魔搭AI服务"""
 
-    def __init__(self, api_key: str, model: str = "Qwen2.5-72B-Instruct"):
+    def __init__(self, api_key: str, model: str = "deepseek-ai/DeepSeek-V3.2", base_url: str = "https://api-inference.modelscope.cn/v1"):
         super().__init__(
             api_key=api_key,
-            base_url="https://api.modelscope.cn/v1",
+            base_url=base_url,
             model=model
         )
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key
+        )
 
-    def _call_api(self, messages: list, temperature: float = 0.7) -> str:
+    def _call_api(self, messages: list, temperature: float = 0.7, enable_thinking: bool = False) -> str:
         """调用魔搭API"""
         try:
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": temperature
-                },
-                timeout=60
+            # 构建extra_body参数（DeepSeek V3.2支持thinking模式）
+            extra_body = {}
+            if "V3.2" in self.model:
+                extra_body["enable_thinking"] = enable_thinking
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                extra_body=extra_body if extra_body else None
             )
-            response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
+
+            return response.choices[0].message.content
         except Exception as e:
             raise Exception(f"魔搭API调用失败: {str(e)}")
 

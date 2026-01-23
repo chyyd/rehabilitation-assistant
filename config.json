@@ -13,8 +13,8 @@
     "default": "modelscope",
     "modelscope": {
       "api_key": "ms-f449b8b0-f623-4f91-9288-a1c13d38daed",
-      "model": "deepseek-ai/DeepSeek-V3",
-      "base_url": "https://api.modelscope.cn/v1"
+      "model": "deepseek-ai/DeepSeek-V3.2",
+      "base_url": "https://api-inference.modelscope.cn/v1"
     },
     "deepseek": {
       "api_key": "",
