@@ -1,0 +1,42 @@
+{
+  "app": {
+    "name": "康复科助手",
+    "version": "1.0.0",
+    "database_path": "./rehab_assistant.db"
+  },
+  "siliconflow": {
+    "api_key": "sk-tweswtuyrbzxxjiziprqrqchpkiwyxapctgaqutocucsptqx",
+    "embedding_model": "BAAI/bge-large-zh-v1.5",
+    "base_url": "https://api.siliconflow.cn/v1"
+  },
+  "ai_services": {
+    "default": "modelscope",
+    "modelscope": {
+      "api_key": "ms-f449b8b0-f623-4f91-9288-a1c13d38daed",
+      "model": "deepseek-ai/DeepSeek-V3",
+      "base_url": "https://api.modelscope.cn/v1"
+    },
+    "deepseek": {
+      "api_key": "",
+      "model": "deepseek-chat",
+      "base_url": "https://api.deepseek.com/v1"
+    },
+    "kimi": {
+      "api_key": "",
+      "model": "moonshot-v1-8k",
+      "base_url": "https://api.moonshot.cn/v1"
+    }
+  },
+  "knowledge_base": {
+    "chroma_path": "./knowledge_base/data",
+    "file_path": "./knowledge_base/files",
+    "chunk_size": 800,
+    "chunk_overlap": 100,
+    "top_k_results": 5
+  },
+  "doctors": {
+    "resident": "于友达",
+    "attending": "都吉香",
+    "chief": "车永生"
+  }
+}
