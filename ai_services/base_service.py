@@ -2,7 +2,6 @@
 AI服务抽象基类
 """
 from abc import ABC, abstractmethod
-from typing import dict
 
 
 class AIService(ABC):

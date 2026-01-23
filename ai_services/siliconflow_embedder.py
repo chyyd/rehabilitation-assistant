@@ -2,7 +2,6 @@
 硅基流动嵌入服务
 """
 import requests
-from typing import list
 
 
 class SiliconFlowEmbedder:
