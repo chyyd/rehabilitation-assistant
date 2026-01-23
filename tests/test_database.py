@@ -4,6 +4,7 @@
 import pytest
 import tempfile
 import os
+from datetime import date
 from database import DBManager, Patient
 
 
@@ -14,7 +15,7 @@ def test_add_patient(db_manager):
         "name": "测试患者",
         "gender": "男",
         "age": 65,
-        "admission_date": "2025-01-23",
+        "admission_date": date(2025, 1, 23),
         "diagnosis": "脑梗死恢复期",
         "initial_note": "患者因右侧肢体活动不利10天入院..."
     }
@@ -28,7 +29,7 @@ def test_add_patient(db_manager):
     assert patient.name == "测试患者"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def db_manager():
     """数据库管理器fixture"""
     # 使用临时数据库
@@ -39,5 +40,12 @@ def db_manager():
 
     yield db
 
-    # 清理
-    os.unlink(temp_db.name)
+    # 清理 (Windows下可能需要延迟删除)
+    try:
+        db.get_session().close()
+    except:
+        pass
+    try:
+        os.unlink(temp_db.name)
+    except:
+        pass
