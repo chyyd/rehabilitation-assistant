@@ -21,6 +21,35 @@
         <el-tag>住院第{{ daysInHospital }}天</el-tag>
       </div>
 
+      <!-- 批量操作栏 -->
+      <div v-if="selectedNoteIds.size > 0" class="batch-actions">
+        <div class="batch-info">
+          <el-checkbox
+            v-model="allSelected"
+            :indeterminate="isIndeterminate"
+            @change="handleSelectAll"
+          >
+            已选择 {{ selectedNoteIds.size }} 条记录
+          </el-checkbox>
+        </div>
+        <div class="batch-buttons">
+          <el-button
+            type="primary"
+            size="small"
+            :icon="DocumentCopy"
+            @click="handleBatchCopy"
+          >
+            复制选中的记录
+          </el-button>
+          <el-button
+            size="small"
+            @click="clearSelection"
+          >
+            取消选择
+          </el-button>
+        </div>
+      </div>
+
       <!-- 时间轴 -->
       <div v-loading="loadingHistory" class="timeline-container">
         <div
@@ -42,6 +71,11 @@
             <el-card v-if="item.hasRecord" class="record-card" shadow="hover">
               <template #header>
                 <div class="record-header">
+                  <el-checkbox
+                    :model-value="selectedNoteIds.has(item.note?.id)"
+                    @change="(val) => handleNoteSelect(item.note?.id, val)"
+                    @click.stop
+                  />
                   <span class="record-type">{{ item.note?.record_type }}</span>
                   <div class="header-actions">
                     <el-tag v-if="item.note?.is_edited" type="warning" size="small">已编辑</el-tag>
@@ -455,6 +489,8 @@ watch(recordMode, (newMode) => {
 })
 
 watch(() => props.patient?.hospital_number, () => {
+  // 清除之前的批量选择
+  clearSelection()
   if (recordMode.value === 'scheduled') {
     loadTimelineData()
   }
@@ -510,6 +546,11 @@ const cardForms = ref<Map<number, any>>(new Map())
 // 每个卡片的生成和保存状态
 const cardGeneratingStates = ref<Map<number, boolean>>(new Map())
 const cardSavingStates = ref<Map<number, boolean>>(new Map())
+
+// 批量选择相关的状态
+const selectedNoteIds = ref<Set<number>>(new Set())
+const allSelected = ref(false)
+const isIndeterminate = ref(false)
 
 // 生成记录表单
 const generateForm = ref({
@@ -607,10 +648,8 @@ async function handleSave() {
       // 清空输入
       dailyCondition.value = ''
       generatedContent.value = ''
-      // 如果是按日补记录模式，刷新时间轴
-      if (recordMode.value === 'scheduled') {
-        await loadTimelineData()
-      }
+      // 刷新时间轴数据（无论是临时记录还是按日补记录）
+      await loadTimelineData()
     }
   } catch (error: any) {
     ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
@@ -674,11 +713,14 @@ function buildTimeline() {
   const today = new Date()
   const totalDays = Math.floor((today.getTime() - admission.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
-  // 创建日期到记录的映射
-  const recordMap = new Map<string, any>()
+  // 创建日期到记录数组的映射（支持同一天多条记录）
+  const recordMap = new Map<string, any[]>()
   historyNotes.value.forEach(note => {
     const dateStr = note.record_date.split('T')[0]
-    recordMap.set(dateStr, note)
+    if (!recordMap.has(dateStr)) {
+      recordMap.set(dateStr, [])
+    }
+    recordMap.get(dateStr)!.push(note)
   })
 
   // 判断某天是否应该有查房记录
@@ -721,23 +763,36 @@ function buildTimeline() {
     return { shouldHave: false }
   }
 
-  // 为每一天创建时间轴项（只显示应该有记录的日期）
+  // 为每一天创建时间轴项
   for (let i = 0; i < totalDays; i++) {
     const dayNumber = i + 1
     const roundsInfo = shouldHaveRounds(dayNumber)
 
-    // 只有应该有记录的日期才显示在时间轴上
-    if (roundsInfo.shouldHave) {
-      const currentDate = new Date(admission)
-      currentDate.setDate(admission.getDate() + i)
-      const dateStr = currentDate.toISOString().split('T')[0]
+    const currentDate = new Date(admission)
+    currentDate.setDate(admission.getDate() + i)
+    const dateStr = currentDate.toISOString().split('T')[0]
 
-      const note = recordMap.get(dateStr)
+    const notes = recordMap.get(dateStr)
+
+    // 如果有记录（无论是否应该有记录），都显示在时间轴上
+    if (notes && notes.length > 0) {
+      // 同一天有多条记录，每条记录都作为一个时间轴项
+      notes.forEach(note => {
+        timeline.push({
+          date: dateStr,
+          dayNumber: dayNumber,
+          hasRecord: true,
+          note: note,
+          expectedType: roundsInfo.expectedType || note.record_type
+        })
+      })
+    } else if (roundsInfo.shouldHave) {
+      // 没有记录但应该有记录的日期，显示为缺失
       timeline.push({
         date: dateStr,
         dayNumber: dayNumber,
-        hasRecord: !!note,
-        note: note || null,
+        hasRecord: false,
+        note: null,
         expectedType: roundsInfo.expectedType
       })
     }
@@ -1079,9 +1134,9 @@ async function handleSaveGenerated() {
       ElMessage.success('记录保存成功')
     }
 
-    // 关闭对话框并刷新历史记录
+    // 关闭对话框并刷新时间轴数据
     generateDialogVisible.value = false
-    await showHistoryDialog()
+    await loadTimelineData()
   } catch (error: any) {
     ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
   } finally {
@@ -1127,6 +1182,97 @@ function insertPhraseHandler(phrase: string) {
     dailyCondition.value += '，' + phrase
   } else {
     dailyCondition.value = phrase
+  }
+}
+
+// 批量选择相关的函数
+function handleNoteSelect(noteId: number, checked: boolean) {
+  if (checked) {
+    selectedNoteIds.value.add(noteId)
+  } else {
+    selectedNoteIds.value.delete(noteId)
+  }
+  updateSelectAllState()
+}
+
+function handleSelectAll(checked: boolean) {
+  const allNoteIds = timelineData.value
+    .filter(item => item.hasRecord && item.note?.id)
+    .map(item => item.note.id)
+
+  if (checked) {
+    allNoteIds.forEach(id => selectedNoteIds.value.add(id))
+  } else {
+    selectedNoteIds.value.clear()
+  }
+  updateSelectAllState()
+}
+
+function updateSelectAllState() {
+  const allNoteIds = timelineData.value
+    .filter(item => item.hasRecord && item.note?.id)
+    .map(item => item.note.id)
+
+  if (allNoteIds.length === 0) {
+    allSelected.value = false
+    isIndeterminate.value = false
+    return
+  }
+
+  const selectedCount = selectedNoteIds.value.size
+  allSelected.value = selectedCount === allNoteIds.length
+  isIndeterminate.value = selectedCount > 0 && selectedCount < allNoteIds.length
+}
+
+function clearSelection() {
+  selectedNoteIds.value.clear()
+  allSelected.value = false
+  isIndeterminate.value = false
+}
+
+async function handleBatchCopy() {
+  if (selectedNoteIds.value.size === 0) {
+    ElMessage.warning('请先选择要复制的记录')
+    return
+  }
+
+  // 获取选中的记录，并按时间排序（从旧到新）
+  const selectedNotes = timelineData.value
+    .filter(item => item.hasRecord && selectedNoteIds.value.has(item.note?.id))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map(item => item.note)
+
+  if (selectedNotes.length === 0) {
+    ElMessage.warning('没有可复制的记录')
+    return
+  }
+
+  // 拼接所有记录内容，每条记录换行分隔
+  const combinedContent = selectedNotes
+    .map(note => note.generated_content)
+    .join('\n')
+
+  // 复制到剪贴板
+  try {
+    await navigator.clipboard.writeText(combinedContent)
+    ElMessage.success(`已复制 ${selectedNotes.length} 条病程记录到剪贴板`)
+    clearSelection()
+  } catch (err) {
+    // 降级方案：使用传统方法
+    const textarea = document.createElement('textarea')
+    textarea.value = combinedContent
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      ElMessage.success(`已复制 ${selectedNotes.length} 条病程记录到剪贴板`)
+      clearSelection()
+    } catch (e) {
+      ElMessage.error('复制失败，请手动复制')
+    }
+    document.body.removeChild(textarea)
   }
 }
 
@@ -1269,6 +1415,29 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+/* 批量操作栏 */
+.batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: #E6F7FF;
+  border: 1px solid #91D5FF;
+  border-radius: 8px;
+  animation: slideDown 0.3s ease-in-out;
+}
+
+.batch-info {
+  display: flex;
+  align-items: center;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 /* 时间轴容器 */
 .timeline-container {
   /* 去掉最大高度限制和滚动条，让内容自然展示 */
@@ -1351,8 +1520,8 @@ onUnmounted(() => {
 
 .record-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
   width: 100%;
 }
 

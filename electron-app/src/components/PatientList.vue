@@ -26,19 +26,13 @@
                   第{{ patient.days_in_hospital }}天 | {{ patient.hospital_number }}
                 </div>
               </div>
-            </div>
-            <div class="patient-diagnosis" @click="selectPatient(patient)">
-              {{ patient.diagnosis || '未填写诊断' }}
-            </div>
-            <div class="card-actions">
               <el-button
                 :icon="Edit"
                 size="small"
                 text
+                class="edit-button"
                 @click.stop="showEditDialog(patient)"
-              >
-                编辑
-              </el-button>
+              />
             </div>
           </div>
         </div>
@@ -97,11 +91,8 @@ const sortedPatients = computed(() => {
   if (!activePatients.value || !Array.isArray(activePatients.value)) return []
 
   return [...activePatients.value].sort((a, b) => {
-    // 按优先级排序：紧急 > 高 > 普通
-    const priorityMap = { urgent: 3, high: 2, normal: 1 }
-    const priorityA = getPriority(a)
-    const priorityB = getPriority(b)
-    return priorityB - priorityA
+    // 按住院天数倒序排列（天数最多的在最上面）
+    return b.days_in_hospital - a.days_in_hospital
   })
 })
 
@@ -210,11 +201,12 @@ function handleUndoDischarge() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  position: relative;
 }
 
 .priority-icon {
   font-size: 16px;
+  flex-shrink: 0;
 }
 
 .patient-name {
@@ -229,19 +221,11 @@ function handleUndoDischarge() {
   margin-top: 2px;
 }
 
-.patient-diagnosis {
-  font-size: 13px;
-  color: #666;
-  padding-left: 24px;
-  cursor: pointer;
-}
-
-.card-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
-  margin-top: 8px;
+.edit-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 4px !important;
 }
 
 /* 优先级样式 */
