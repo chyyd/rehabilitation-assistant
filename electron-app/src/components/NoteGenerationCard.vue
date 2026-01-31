@@ -4,13 +4,13 @@
       <div class="card-header">
         <span class="card-title">病程记录</span>
         <el-radio-group v-model="recordMode" size="small">
-          <el-radio-button label="scheduled">按日补记录</el-radio-button>
+          <el-radio-button label="scheduled">常规记录</el-radio-button>
           <el-radio-button label="temporary">临时记录</el-radio-button>
         </el-radio-group>
       </div>
     </template>
 
-    <!-- 按日补记录模式 - 时间轴 -->
+    <!-- 常规记录模式 - 时间轴 -->
     <div v-if="recordMode === 'scheduled'" class="scheduled-mode">
       <!-- 统计信息 -->
       <div v-if="timelineData.length > 0" class="timeline-stats">
@@ -119,7 +119,7 @@
                     @click="toggleCardExpand(index)"
                     :icon="isCardExpanded(index) ? ArrowUp : ArrowDown"
                   >
-                    {{ isCardExpanded(index) ? '收起' : '补记录' }}
+                    {{ isCardExpanded(index) ? '收起' : '写记录' }}
                   </el-button>
                 </div>
               </template>
@@ -127,10 +127,10 @@
               <!-- 未展开状态 -->
               <div v-if="!isCardExpanded(index)" class="missing-content">
                 <el-icon class="missing-icon"><Warning /></el-icon>
-                <span class="missing-text">该日期应该有{{ item.expectedType }}但未创建，点击上方按钮补录</span>
+                <span class="missing-text">该日期应该有{{ item.expectedType }}但未创建，点击上方按钮写记录</span>
               </div>
 
-              <!-- 展开状态 - 补记录表单 -->
+              <!-- 展开状态 - 写记录表单 -->
               <div v-else class="generate-form-content">
                 <el-form :model="getCardForm(index)" label-width="100px">
                   <el-form-item label="记录日期">
@@ -335,13 +335,13 @@
                       @click="openGenerateDialog(item)"
                       :icon="Plus"
                     >
-                      补记录
+                      写记录
                     </el-button>
                   </div>
                 </template>
                 <div class="missing-content">
                   <el-icon class="missing-icon"><Warning /></el-icon>
-                  <span class="missing-text">该日期应该有{{ item.expectedType }}但未创建，点击上方按钮补录</span>
+                  <span class="missing-text">该日期应该有{{ item.expectedType }}但未创建，点击上方按钮写记录</span>
                 </div>
               </el-card>
             </div>
@@ -386,7 +386,7 @@
       </div>
     </el-dialog>
 
-    <!-- 补录/重新生成病程记录对话框 -->
+    <!-- 写记录/重新生成病程记录对话框 -->
     <el-dialog
       v-model="generateDialogVisible"
       :title="generateDialogTitle"
@@ -471,7 +471,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// 记录模式：scheduled=按日补记录（时间轴），temporary=临时记录
+// 记录模式：scheduled=常规记录（时间轴），temporary=临时记录
 const recordMode = ref('scheduled')
 
 // 组件挂载时自动加载时间轴
@@ -540,7 +540,7 @@ const selectedNote = ref<any>(null)
 const admissionDate = ref('')
 const timelineData = ref<any[]>([])
 
-// 展开的卡片（用于补记录功能）
+// 展开的卡片（用于写记录功能）
 const expandedCards = ref<Set<number>>(new Set())
 
 // 每个卡片的表单数据
@@ -577,7 +577,7 @@ const daysInHospital = computed(() => {
 })
 
 const generateDialogTitle = computed(() => {
-  return generateForm.value.existingNoteId ? '重新生成病程记录' : '补录病程记录'
+  return generateForm.value.existingNoteId ? '重新生成病程记录' : '写病程记录'
 })
 
 async function handleGenerate() {
@@ -651,7 +651,7 @@ async function handleSave() {
       // 清空输入
       dailyCondition.value = ''
       generatedContent.value = ''
-      // 刷新时间轴数据（无论是临时记录还是按日补记录）
+      // 刷新时间轴数据（无论是临时记录还是常规记录）
       await loadTimelineData()
     }
   } catch (error: any) {
@@ -841,7 +841,7 @@ function openGenerateDialog(item: any) {
   generateDialogVisible.value = true
 }
 
-// ========== 卡片展开式补记录功能 ==========
+// ========== 卡片展开式写记录功能 ==========
 
 // 检查卡片是否展开
 function isCardExpanded(index: number): boolean {
@@ -1357,7 +1357,7 @@ onUnmounted(() => {
   color: #1E40AF;
 }
 
-/* 按日补记录模式 - 时间轴 */
+/* 常规记录模式 - 时间轴 */
 .scheduled-mode {
   padding: 16px 0;
 }
@@ -1383,7 +1383,7 @@ onUnmounted(() => {
   }
 }
 
-/* 卡片展开式补记录表单 */
+/* 卡片展开式写记录表单 */
 .generate-form-content {
   padding: 16px 0;
   animation: slideDown 0.3s ease-in-out;
