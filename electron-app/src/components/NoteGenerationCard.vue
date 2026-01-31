@@ -204,49 +204,134 @@
 
     <!-- 临时记录模式 -->
     <div v-else class="temporary-mode">
-      <div class="mode-description">
-        <el-icon><InfoFilled /></el-icon>
-        <span>记录患者当前的临时变化或特殊情况（住院医师查房）</span>
+      <!-- 创建临时记录表单 -->
+      <el-card class="create-temporary-card" shadow="hover">
+        <template #header>
+          <div class="record-header">
+            <span class="record-type">创建临时记录</span>
+          </div>
+        </template>
+
+        <el-form :model="temporaryForm" label-width="100px">
+          <el-form-item label="记录日期">
+            <el-date-picker
+              v-model="temporaryForm.recordDate"
+              type="date"
+              placeholder="选择日期"
+              :disabled-date="disabledDate"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+          </el-form-item>
+
+          <el-form-item label="当日情况">
+            <el-input
+              v-model="temporaryForm.dailyCondition"
+              type="textarea"
+              :rows="5"
+              placeholder="请输入患者今日情况..."
+              id="temporary-daily-condition"
+            />
+          </el-form-item>
+
+          <el-form-item label="AI生成预览">
+            <el-input
+              v-model="temporaryForm.generatedContent"
+              type="textarea"
+              :rows="8"
+              placeholder="AI生成的病程记录将显示在这里..."
+            />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button
+              type="primary"
+              :loading="temporaryGenerating"
+              :icon="MagicStick"
+              @click="handleGenerateTemporary"
+            >
+              AI生成
+            </el-button>
+            <el-button
+              type="success"
+              :loading="temporarySaving"
+              :icon="Check"
+              @click="handleSaveTemporary"
+              :disabled="!temporaryForm.generatedContent"
+            >
+              保存记录
+            </el-button>
+            <el-button
+              @click="clearTemporaryForm"
+            >
+              清空
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 统计信息 -->
+      <div v-if="temporaryNotes.length > 0" class="timeline-stats" style="margin-top: 20px;">
+        <el-tag type="success">临时记录：{{ temporaryNotes.length }}次</el-tag>
       </div>
 
-      <div class="form-content">
-        <div class="form-section">
-          <label>记录日期：</label>
-          <el-date-picker
-            v-model="temporaryDate"
-            type="date"
-            placeholder="选择日期"
-            :disabled-date="disabledDate"
-            value-format="YYYY-MM-DD"
-          />
+      <!-- 临时记录列表 -->
+      <div v-loading="loadingHistory" class="timeline-container" style="margin-top: 20px;">
+        <div
+          v-for="(note, index) in temporaryNotes"
+          :key="note.id"
+          class="timeline-item"
+        >
+          <div class="timeline-dot"></div>
+          <div class="timeline-date">
+            <div class="date-text">{{ formatDate(note.record_date) }}</div>
+            <div class="day-number">临时记录</div>
+          </div>
+          <div class="timeline-content">
+            <!-- 记录卡片 -->
+            <el-card class="record-card" shadow="hover">
+              <template #header>
+                <div class="record-header">
+                  <el-checkbox
+                    :model-value="selectedNoteIds.has(note.id)"
+                    @change="(val) => handleNoteSelect(note.id, val)"
+                    @click.stop
+                  />
+                  <span class="record-type">{{ note.record_type }}</span>
+                  <div class="header-actions">
+                    <el-tag v-if="note.is_edited" type="warning" size="small">已编辑</el-tag>
+                    <el-button
+                      link
+                      type="primary"
+                      size="small"
+                      @click="openGenerateDialogForNote(note)"
+                      :icon="Edit"
+                    >
+                      重新生成
+                    </el-button>
+                    <el-button
+                      link
+                      type="primary"
+                      size="small"
+                      @click="viewFullRecord(note)"
+                      :icon="Document"
+                    >
+                      查看完整
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+              <div class="record-preview">
+                <div class="preview-section">
+                  <span class="section-label">情况：</span>
+                  <span class="section-text">{{ truncateText(note.daily_condition, 50) }}</span>
+                </div>
+              </div>
+            </el-card>
+          </div>
         </div>
 
-        <div class="form-section">
-          <label>当日情况：</label>
-          <el-input
-            v-model="dailyCondition"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入患者今日情况..."
-          />
-        </div>
-
-        <div class="action-buttons">
-          <el-button type="primary" :icon="MagicStick" :loading="generating" @click="handleGenerate">
-            AI生成
-          </el-button>
-          <el-button :icon="DocumentCopy" @click="handleSave">保存</el-button>
-        </div>
-
-        <div v-if="generatedContent" class="preview-section">
-          <label>AI生成预览：</label>
-          <el-input
-            v-model="generatedContent"
-            type="textarea"
-            :rows="8"
-            placeholder="AI生成的病程记录将显示在这里..."
-          />
-        </div>
+        <el-empty v-if="temporaryNotes.length === 0" description="暂无临时记录，请在上方创建" />
       </div>
     </div>
 
@@ -372,18 +457,87 @@
           <div class="record-section">
             <div class="section-header">
               <strong>病程记录：</strong>
-              <el-button
-                :icon="DocumentCopy"
-                size="small"
-                @click="copyRecordContent"
-              >
-                复制
-              </el-button>
+              <div class="header-buttons">
+                <el-button
+                  :icon="Edit"
+                  size="small"
+                  @click="openEditRecordDialog"
+                >
+                  修改
+                </el-button>
+                <el-button
+                  :icon="DocumentCopy"
+                  size="small"
+                  @click="copyRecordContent"
+                >
+                  复制
+                </el-button>
+              </div>
             </div>
             <p>{{ selectedNote.generated_content }}</p>
           </div>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- 编辑病程记录对话框 -->
+    <el-dialog
+      v-model="editRecordDialogVisible"
+      title="编辑病程记录"
+      width="700px"
+    >
+      <el-form :model="editForm" label-width="100px">
+        <el-form-item label="记录日期">
+          <el-date-picker
+            v-model="editForm.recordDate"
+            type="date"
+            placeholder="选择日期"
+            disabled
+            style="width: 100%"
+          />
+        </el-form-item>
+
+        <el-form-item label="记录类型">
+          <el-select v-model="editForm.recordType" style="width: 100%">
+            <el-option label="住院医师查房" value="住院医师查房" />
+            <el-option label="主治医师查房" value="主治医师查房" />
+            <el-option label="主任医师查房" value="主任医师查房" />
+            <el-option label="阶段小结" value="阶段小结" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="当日情况">
+          <el-input
+            v-model="editForm.dailyCondition"
+            type="textarea"
+            :rows="5"
+            placeholder="请输入当日情况..."
+          />
+        </el-form-item>
+
+        <el-form-item label="病程记录">
+          <el-input
+            v-model="editForm.generatedContent"
+            type="textarea"
+            :rows="12"
+            placeholder="请输入病程记录内容..."
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editRecordDialogVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            :loading="savingEdit"
+            :icon="Check"
+            @click="handleSaveEdit"
+          >
+            保存修改
+          </el-button>
+        </span>
+      </template>
     </el-dialog>
 
     <!-- 写记录/重新生成病程记录对话框 -->
@@ -482,9 +636,12 @@ onMounted(() => {
 })
 
 // 监听模式切换和患者变化
-watch(recordMode, (newMode) => {
+watch(recordMode, async (newMode) => {
   if (newMode === 'scheduled') {
     loadTimelineData()
+  } else if (newMode === 'temporary') {
+    // 切换到临时记录时，也加载历史记录
+    await loadTimelineData()
   }
 })
 
@@ -523,6 +680,13 @@ async function loadTimelineData() {
 }
 
 // 临时记录相关
+const temporaryGenerating = ref(false)
+const temporarySaving = ref(false)
+const temporaryForm = ref({
+  recordDate: new Date().toISOString().split('T')[0],
+  dailyCondition: '',
+  generatedContent: ''
+})
 const temporaryDate = ref(new Date().toISOString().split('T')[0])
 
 // 通用变量
@@ -533,6 +697,7 @@ const generating = ref(false)
 const saving = ref(false)
 const historyDialogVisible = ref(false)
 const fullRecordDialogVisible = ref(false)
+const editRecordDialogVisible = ref(false)
 const generateDialogVisible = ref(false)
 const historyNotes = ref<any[]>([])
 const loadingHistory = ref(false)
@@ -565,6 +730,17 @@ const generateForm = ref({
   existingNoteId: null as number | null
 })
 
+// 编辑记录表单
+const editForm = ref({
+  recordDate: '',
+  recordType: '',
+  dailyCondition: '',
+  generatedContent: '',
+  noteId: null as number | null
+})
+
+const savingEdit = ref(false)
+
 // 计算属性
 const recordCount = computed(() => historyNotes.value.length)
 const missingCount = computed(() => timelineData.value.filter(item => !item.hasRecord).length)
@@ -574,6 +750,28 @@ const daysInHospital = computed(() => {
   const today = new Date()
   const diffTime = today.getTime() - admission.getTime()
   return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
+})
+
+// 临时记录列表（筛选出不在常规查房日期的记录）
+const temporaryNotes = computed(() => {
+  if (!admissionDate.value || !historyNotes.value.length) return []
+
+  const admission = new Date(admissionDate.value)
+
+  // 判断某天是否应该有查房记录
+  function shouldHaveRounds(day: number): boolean {
+    if (day % 30 === 0) return true
+    if (day === 2 || day === 3) return true
+    if (day >= 6 && day % 3 === 0) return true
+    return false
+  }
+
+  // 筛选出临时记录（不在应该有查房的日期）
+  return historyNotes.value.filter(note => {
+    const noteDate = new Date(note.record_date)
+    const dayNumber = Math.floor((noteDate.getTime() - admission.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    return !shouldHaveRounds(dayNumber)
+  })
 })
 
 const generateDialogTitle = computed(() => {
@@ -839,6 +1037,95 @@ function openGenerateDialog(item: any) {
     existingNoteId: item.note?.id || null
   }
   generateDialogVisible.value = true
+}
+
+// 清空临时记录表单
+function clearTemporaryForm() {
+  temporaryForm.value = {
+    recordDate: new Date().toISOString().split('T')[0],
+    dailyCondition: '',
+    generatedContent: ''
+  }
+}
+
+// 为指定记录打开生成对话框
+function openGenerateDialogForNote(note: any) {
+  const noteDate = new Date(note.record_date)
+  const admission = new Date(admissionDate.value)
+  const dayNumber = Math.floor((noteDate.getTime() - admission.getTime()) / (1000 * 60 * 60 * 24)) + 1
+
+  generateForm.value = {
+    recordDate: note.record_date,
+    recordType: note.record_type,
+    dailyCondition: note.daily_condition,
+    generatedContent: note.generated_content,
+    dayNumber: dayNumber,
+    existingNoteId: note.id
+  }
+
+  generateDialogVisible.value = true
+}
+
+// 生成临时记录
+async function handleGenerateTemporary() {
+  if (!temporaryForm.value.dailyCondition.trim()) {
+    ElMessage.warning('请输入当日情况')
+    return
+  }
+
+  temporaryGenerating.value = true
+  try {
+    // 读取医生信息
+    const doctorInfoStr = localStorage.getItem('doctor_info')
+    const doctorInfo = doctorInfoStr ? JSON.parse(doctorInfoStr) : null
+
+    const response = await axios.post('http://127.0.0.1:8000/api/ai/generate-note', {
+      hospital_number: props.patient.hospital_number,
+      daily_condition: temporaryForm.value.dailyCondition,
+      record_type: '住院医师查房',
+      doctor_info: doctorInfo
+    })
+
+    if (response.data.success) {
+      temporaryForm.value.generatedContent = response.data.data.content
+      ElMessage.success('生成成功')
+    }
+  } catch (error: any) {
+    ElMessage.error('生成失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    temporaryGenerating.value = false
+  }
+}
+
+// 保存临时记录
+async function handleSaveTemporary() {
+  if (!temporaryForm.value.generatedContent.trim()) {
+    ElMessage.warning('请先生成病程记录')
+    return
+  }
+
+  temporarySaving.value = true
+  try {
+    await axios.post('http://127.0.0.1:8000/api/notes/', {
+      hospital_number: props.patient.hospital_number,
+      record_date: temporaryForm.value.recordDate,
+      record_type: '住院医师查房',
+      daily_condition: temporaryForm.value.dailyCondition,
+      generated_content: temporaryForm.value.generatedContent
+    })
+
+    ElMessage.success('保存成功')
+
+    // 清空表单
+    clearTemporaryForm()
+
+    // 刷新时间轴数据
+    await loadTimelineData()
+  } catch (error: any) {
+    ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    temporarySaving.value = false
+  }
 }
 
 // ========== 卡片展开式写记录功能 ==========
@@ -1181,14 +1468,77 @@ function copyRecordContent() {
   }
 }
 
+// 打开编辑记录对话框
+function openEditRecordDialog() {
+  if (!selectedNote.value) return
+
+  editForm.value = {
+    recordDate: selectedNote.value.record_date,
+    recordType: selectedNote.value.record_type,
+    dailyCondition: selectedNote.value.daily_condition,
+    generatedContent: selectedNote.value.generated_content,
+    noteId: selectedNote.value.id
+  }
+
+  editRecordDialogVisible.value = true
+}
+
+// 保存编辑的记录
+async function handleSaveEdit() {
+  if (!editForm.value.noteId) {
+    ElMessage.warning('无法保存：记录ID不存在')
+    return
+  }
+
+  if (!editForm.value.generatedContent.trim()) {
+    ElMessage.warning('请输入病程记录内容')
+    return
+  }
+
+  savingEdit.value = true
+  try {
+    await axios.put(`http://127.0.0.1:8000/api/notes/${editForm.value.noteId}`, {
+      record_type: editForm.value.recordType,
+      daily_condition: editForm.value.dailyCondition,
+      generated_content: editForm.value.generatedContent,
+      is_edited: true
+    })
+
+    ElMessage.success('记录修改成功')
+
+    // 关闭编辑对话框
+    editRecordDialogVisible.value = false
+    // 关闭完整记录对话框
+    fullRecordDialogVisible.value = false
+
+    // 刷新时间轴数据
+    await loadTimelineData()
+  } catch (error: any) {
+    ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
+  } finally {
+    savingEdit.value = false
+  }
+}
+
 // 定义插入短语的回调函数
 function insertPhraseHandler(phrase: string) {
-  // 如果当前已有内容，在后面追加
-  if (dailyCondition.value.trim()) {
-    dailyCondition.value += '，' + phrase
+  // 根据当前模式判断插入到哪个字段
+  if (recordMode.value === 'temporary') {
+    // 临时记录模式：插入到临时记录的当日情况
+    if (temporaryForm.value.dailyCondition.trim()) {
+      temporaryForm.value.dailyCondition += '，' + phrase
+    } else {
+      temporaryForm.value.dailyCondition = phrase
+    }
   } else {
-    dailyCondition.value = phrase
+    // 常规记录模式：插入到常规记录的当日情况
+    if (dailyCondition.value.trim()) {
+      dailyCondition.value += '，' + phrase
+    } else {
+      dailyCondition.value = phrase
+    }
   }
+  // 提示由 QuickTools.vue 统一处理
 }
 
 // 批量选择相关的函数
@@ -1243,10 +1593,20 @@ async function handleBatchCopy() {
   }
 
   // 获取选中的记录，并按时间排序（从旧到新）
-  const selectedNotes = timelineData.value
-    .filter(item => item.hasRecord && selectedNoteIds.value.has(item.note?.id))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map(item => item.note)
+  let selectedNotes: any[] = []
+
+  if (recordMode.value === 'scheduled') {
+    // 常规记录模式：从时间轴获取
+    selectedNotes = timelineData.value
+      .filter(item => item.hasRecord && selectedNoteIds.value.has(item.note?.id))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(item => item.note)
+  } else {
+    // 临时记录模式：直接从临时记录列表获取
+    selectedNotes = temporaryNotes.value
+      .filter(note => selectedNoteIds.value.has(note.id))
+      .sort((a, b) => new Date(a.record_date).getTime() - new Date(b.record_date).getTime())
+  }
 
   if (selectedNotes.length === 0) {
     ElMessage.warning('没有可复制的记录')
@@ -1365,6 +1725,11 @@ onUnmounted(() => {
 /* 临时记录模式 */
 .temporary-mode {
   padding: 16px 0;
+}
+
+/* 创建临时记录卡片 */
+.create-temporary-card {
+  margin-bottom: 20px;
 }
 
 /* 表单内容 */
@@ -1651,6 +2016,11 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .full-record-content p {
