@@ -510,6 +510,9 @@ async function loadTimelineData() {
     )
     historyNotes.value = response.data
 
+    console.log('[DEBUG] 加载到病程记录数量:', historyNotes.value.length)
+    console.log('[DEBUG] 病程记录:', historyNotes.value)
+
     // 构建完整时间轴
     buildTimeline()
   } catch (error: any) {
@@ -776,6 +779,7 @@ function buildTimeline() {
 
     // 如果有记录（无论是否应该有记录），都显示在时间轴上
     if (notes && notes.length > 0) {
+      console.log(`[DEBUG] 日期 ${dateStr} 有 ${notes.length} 条记录`)
       // 同一天有多条记录，每条记录都作为一个时间轴项
       notes.forEach(note => {
         timeline.push({
@@ -797,6 +801,8 @@ function buildTimeline() {
       })
     }
   }
+
+  console.log('[DEBUG] 时间轴构建完成，共', timeline.length, '项')
 
   // 按日期倒序排列（最新的在前面）
   timeline.reverse()

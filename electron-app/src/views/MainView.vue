@@ -15,9 +15,6 @@
         <el-button type="primary" :icon="Plus" @click="showNewPatientDialog = true">
           新患者
         </el-button>
-        <el-button :icon="Document" @click="showTemplateManager = true">
-          模板管理
-        </el-button>
         <el-button :icon="Setting" circle @click="showSettingsDialog = true" />
       </div>
     </div>
@@ -31,24 +28,17 @@
       <Workspace class="workspace" />
 
       <!-- 右栏：快速工具 -->
-      <QuickTools class="right-sidebar" />
+      <QuickTools ref="quickToolsRef" class="right-sidebar" />
     </div>
 
     <!-- 新建患者对话框 -->
     <NewPatientDialog v-model="showNewPatientDialog" @success="handleNewPatient" />
 
-    <!-- 模板管理对话框 -->
-    <el-dialog
-      v-model="showTemplateManager"
-      title="模板管理"
-      width="900px"
-      :close-on-click-modal="false"
-    >
-      <TemplateManager />
-    </el-dialog>
-
     <!-- 设置对话框 -->
     <SettingsDialog v-model="showSettingsDialog" />
+
+    <!-- 常用短语管理对话框 -->
+    <ManagePhrasesDialog v-model="showManagePhrasesDialog" @saved="handlePhrasesSaved" />
 
     <!-- 提醒列表对话框 -->
     <el-dialog
@@ -65,7 +55,7 @@
             :icon="Plus"
             @click="showAddTomorrowReminderDialog"
           >
-            添加明日提醒
+            添加提醒
           </el-button>
         </div>
       </template>
@@ -114,10 +104,10 @@
       </div>
     </el-dialog>
 
-    <!-- 添加明日提醒对话框 -->
+    <!-- 添加提醒对话框 -->
     <el-dialog
       v-model="showTomorrowReminderDialog"
-      title="添加明日提醒"
+      title="添加提醒"
       width="500px"
     >
       <el-form :model="tomorrowReminderForm" label-width="80px">
@@ -159,24 +149,25 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Bell, Plus, Setting, Document, Check } from '@element-plus/icons-vue'
+import { Bell, Plus, Setting, Check } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import PatientList from '@/components/PatientList.vue'
 import Workspace from '@/components/Workspace.vue'
 import QuickTools from '@/components/QuickTools.vue'
 import NewPatientDialog from '@/components/NewPatientDialog.vue'
-import TemplateManager from '@/components/TemplateManager.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
+import ManagePhrasesDialog from '@/components/ManagePhrasesDialog.vue'
 import { usePatientStore } from '@/stores/patient'
 import { eventBus } from '@/utils/eventBus'
 
 const patientStore = usePatientStore()
+const quickToolsRef = ref<InstanceType<typeof QuickTools>>()
 const reminderCount = ref(0)
 const currentDate = ref('')
 const showNewPatientDialog = ref(false)
-const showTemplateManager = ref(false)
 const showSettingsDialog = ref(false)
+const showManagePhrasesDialog = ref(false)
 const showReminderDialog = ref(false)
 const reminders = ref<any[]>([])
 const loadingReminders = ref(false)
@@ -200,6 +191,18 @@ function handleShowTomorrowReminderDialog() {
   showAddTomorrowReminderDialog()
 }
 
+// 处理显示常用短语管理对话框事件
+function handleShowManagePhrasesDialog() {
+  showManagePhrasesDialog.value = true
+}
+
+// 处理常用短语保存成功
+function handlePhrasesSaved() {
+  ElMessage.success('常用短语已更新')
+  // 刷新 QuickTools 中的短语列表
+  quickToolsRef.value?.loadPhrases()
+}
+
 onMounted(async () => {
   updateDate()
   updateTomorrowDate()
@@ -209,11 +212,14 @@ onMounted(async () => {
   await fetchReminderCount()
   // 监听显示明日提醒对话框事件
   eventBus.on('show-tomorrow-reminder-dialog', handleShowTomorrowReminderDialog)
+  // 监听显示常用短语管理对话框事件
+  eventBus.on('show-manage-phrases-dialog', handleShowManagePhrasesDialog)
 })
 
 onUnmounted(() => {
   // 移除事件监听
   eventBus.off('show-tomorrow-reminder-dialog', handleShowTomorrowReminderDialog)
+  eventBus.off('show-manage-phrases-dialog', handleShowManagePhrasesDialog)
 })
 
 async function fetchReminderCount() {
@@ -295,7 +301,7 @@ async function handleReminderClick(reminder: any) {
   }
 }
 
-// 显示添加明日提醒对话框
+// 显示添加提醒对话框
 function showAddTomorrowReminderDialog() {
   // 如果有当前患者，自动选中
   if (patientStore.currentPatient) {
@@ -305,7 +311,7 @@ function showAddTomorrowReminderDialog() {
   showTomorrowReminderDialog.value = true
 }
 
-// 创建明日提醒
+// 创建提醒
 async function createTomorrowReminder() {
   if (!tomorrowReminderForm.value.hospitalNumber) {
     ElMessage.warning('请选择患者')
@@ -326,7 +332,7 @@ async function createTomorrowReminder() {
       description: tomorrowReminderForm.value.description
     })
 
-    ElMessage.success('明日提醒创建成功')
+    ElMessage.success('提醒创建成功')
     showTomorrowReminderDialog.value = false
     tomorrowReminderForm.value = {
       hospitalNumber: '',
