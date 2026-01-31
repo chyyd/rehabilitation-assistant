@@ -29,13 +29,20 @@ venv/
 ENV/
 env/
 
-# 数据库
-*.db
-*.sqlite
-*.sqlite3
+# 数据库（移到data目录）
+data/*.db
+data/*.sqlite
+data/*.sqlite3
 
 # 知识库数据
 knowledge_base/data/
+
+# Electron
+electron-app/node_modules/
+electron-app/dist/
+electron-app/dist-electron/
+electron-app/out/
+electron-app/build/
 
 # IDE
 .vscode/
@@ -50,3 +57,14 @@ knowledge_base/data/
 # 操作系统
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 临时文件
+nul
+
+# 文档生成的图片
+*.png
+*.jpg
+!docs/images/
+

@@ -1,0 +1,32 @@
+{
+  "appId": "com.rehab.assistant",
+  "productName": "康复科助手",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "康复科助手"
+  },
+  "publish": {
+    "provider": "generic",
+    "url": "https://example.com/updates"
+  }
+}

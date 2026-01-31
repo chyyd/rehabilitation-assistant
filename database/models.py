@@ -31,6 +31,8 @@ class Patient(Base):
     # 关系
     progress_notes: Mapped[list["ProgressNote"]] = relationship("ProgressNote", back_populates="patient", cascade="all, delete-orphan")
     reminders: Mapped[list["Reminder"]] = relationship("Reminder", back_populates="patient", cascade="all, delete-orphan")
+    rehab_plan: Mapped[Optional["RehabPlan"]] = relationship("RehabPlan", back_populates="patient", uselist=False, cascade="all, delete-orphan")
+    rehab_progress: Mapped[list["RehabProgress"]] = relationship("RehabProgress", back_populates="patient", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Patient(hospital_number={self.hospital_number}, name={self.name})>"
@@ -109,3 +111,42 @@ class Doctor(Base):
 
     def __repr__(self):
         return f"<Doctor(name={self.doctor_name}, roles={self.roles})>"
+
+
+class RehabPlan(Base):
+    """康复计划表"""
+    __tablename__ = 'rehab_plans'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    patient_id: Mapped[int] = mapped_column(Integer, ForeignKey('patients.id'), nullable=False)
+    hospital_number: Mapped[str] = mapped_column(String(50), nullable=False)
+    short_term_goals: Mapped[Optional[str]] = mapped_column(Text)  # 短期目标（1-2周）
+    long_term_goals: Mapped[Optional[str]] = mapped_column(Text)  # 长期目标（1-3个月）
+    training_plan: Mapped[Optional[str]] = mapped_column(Text)  # JSON格式的训练计划
+    created_at: Mapped[datetime] = mapped_column(Date, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(Date, default=datetime.now, onupdate=datetime.now)
+
+    # 关系
+    patient: Mapped["Patient"] = relationship("Patient", back_populates="rehab_plan")
+
+    def __repr__(self):
+        return f"<RehabPlan(hospital_number={self.hospital_number})>"
+
+
+class RehabProgress(Base):
+    """康复进展记录表"""
+    __tablename__ = 'rehab_progress'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    patient_id: Mapped[int] = mapped_column(Integer, ForeignKey('patients.id'), nullable=False)
+    hospital_number: Mapped[str] = mapped_column(String(50), nullable=False)
+    record_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    score: Mapped[int] = mapped_column(Integer, default=3)  # 1-5星评分
+    created_at: Mapped[datetime] = mapped_column(Date, default=datetime.now)
+
+    # 关系
+    patient: Mapped["Patient"] = relationship("Patient", back_populates="rehab_progress")
+
+    def __repr__(self):
+        return f"<RehabProgress(date={self.record_date}, score={self.score})>"

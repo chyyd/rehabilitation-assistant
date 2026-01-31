@@ -1,52 +1,31 @@
 """
-康复科助手 - 主入口
+康复科助手 - 后端API服务启动器
+启动FastAPI后端服务为Electron前端提供API
 """
-import customtkinter as ctk
-import json
-from pathlib import Path
+import subprocess
+import sys
+import os
 
-from database import DBManager
-from ai_services import AIServiceManager
-from knowledge_base import KnowledgeBaseManager
-from ui import MainWindow
+# 切换到项目根目录
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+print("=" * 60)
+print("   康复科助手 - 后端API服务")
+print("=" * 60)
+print()
+print("正在启动FastAPI后端服务...")
+print("API文档: http://127.0.0.1:8000/docs")
+print("API根路径: http://127.0.0.1:8000/")
+print()
+print("按 Ctrl+C 停止服务")
+print("=" * 60)
+print()
 
-def load_config(config_path: str = "config.json") -> dict:
-    """加载配置文件"""
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-
-def main():
-    # 配置CustomTkinter
-    ctk.set_appearance_mode("Light")
-    ctk.set_default_color_theme("blue")
-
-    # 加载配置
-    config = load_config()
-
-    # 初始化数据库
-    print("初始化数据库...")
-    db_manager = DBManager(config["app"]["database_path"])
-
-    # 初始化AI服务
-    print("初始化AI服务...")
-    ai_manager = AIServiceManager(config)
-
-    # 初始化知识库
-    kb_manager = None
-    if ai_manager.get_embedder():
-        print("初始化知识库...")
-        kb_manager = KnowledgeBaseManager(
-            config["knowledge_base"],
-            ai_manager.get_embedder()
-        )
-
-    # 创建并运行主窗口
-    print("启动应用...")
-    app = MainWindow(db_manager, ai_manager, kb_manager)
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    main()
+# 启动FastAPI服务
+subprocess.run([
+    sys.executable, "-m", "uvicorn",
+    "backend.api_main:app",
+    "--host", "127.0.0.1",
+    "--port", "8000",
+    "--reload"
+])

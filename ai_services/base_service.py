@@ -27,6 +27,11 @@ class AIService(ABC):
         """生成康复计划"""
         pass
 
+    @abstractmethod
+    def extract_common_phrases(self, content: str) -> list:
+        """从病程记录文件中提取常用语句并分类"""
+        pass
+
     def _call_api(self, messages: list, temperature: float = 0.7) -> str:
         """调用AI API的通用方法（子类需实现）"""
         pass
