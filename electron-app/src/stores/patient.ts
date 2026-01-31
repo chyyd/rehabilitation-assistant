@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
+import { eventBus } from '@/utils/eventBus'
 
 const api = axios.create({
   baseURL: 'http://127.0.0.1:8000/api'
@@ -14,10 +15,12 @@ export const usePatientStore = defineStore('patient', () => {
   async function fetchPatients() {
     loading.value = true
     try {
-      const response = await api.get('/patients')
+      const response = await api.get('/patients/', {
+        params: { include_discharged: true }  // 包含出院患者
+      })
       patients.value = response.data
     } catch (error) {
-      console.error('获取患者列表失败:', error)
+      console.error('[Patient Store] 获取患者列表失败:', error)
     } finally {
       loading.value = false
     }
@@ -39,6 +42,8 @@ export const usePatientStore = defineStore('patient', () => {
 
   function selectPatient(patient: any) {
     currentPatient.value = patient
+    // 触发患者切换事件，让其他组件知道患者已切换
+    eventBus.emit('patient-changed', patient)
   }
 
   function clearCurrentPatient() {

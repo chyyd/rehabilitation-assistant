@@ -41,6 +41,11 @@
           <el-descriptions-item label="入院日期">{{ extractedInfo.admission_date }}</el-descriptions-item>
           <el-descriptions-item label="诊断">{{ extractedInfo.diagnosis }}</el-descriptions-item>
           <el-descriptions-item label="主诉" :span="2">{{ extractedInfo.chief_complaint }}</el-descriptions-item>
+          <el-descriptions-item label="既往史" :span="2">{{ extractedInfo.past_history || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="过敏史" :span="2">{{ extractedInfo.allergy_history || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="专科检查" :span="2">
+            <div class="specialist-exam">{{ extractedInfo.specialist_exam || '无' }}</div>
+          </el-descriptions-item>
         </el-descriptions>
         <el-empty v-else description="未提取到患者信息" />
       </div>
@@ -50,7 +55,13 @@
       <span class="dialog-footer">
         <el-button @click="handleClose">取消</el-button>
         <el-button v-if="currentStep > 0" @click="previousStep">上一步</el-button>
-        <el-button v-if="currentStep < 2" type="primary" @click="nextStep">下一步</el-button>
+        <el-button v-if="currentStep < 2" type="primary" :loading="checking || extracting" :disabled="extracting" @click="nextStep">
+          {{
+            currentStep === 0 && checking ? '检查中...' :
+            currentStep === 1 && extracting ? '信息提取中...' :
+            '下一步'
+          }}
+        </el-button>
         <el-button v-else type="primary" :loading="saving" @click="handleSave">完成并保存</el-button>
       </span>
     </template>
@@ -71,6 +82,8 @@ const emit = defineEmits(['update:modelValue', 'success'])
 const visible = ref(props.modelValue)
 const currentStep = ref(0)
 const saving = ref(false)
+const checking = ref(false)
+const extracting = ref(false)
 const form = ref({
   hospital_number: '',
   initial_note: ''
@@ -87,19 +100,58 @@ watch(visible, (val) => {
 
 async function nextStep() {
   if (currentStep.value === 0) {
+    // 第一步：验证住院号
     if (!form.value.hospital_number) {
       ElMessage.warning('请输入住院号')
       return
     }
+
+    // 检查住院号是否已存在
+    checking.value = true
+    try {
+      const response = await axios.get(`http://127.0.0.1:8000/api/patients/${form.value.hospital_number}`)
+      // 如果能获取到患者信息，说明住院号已存在
+      if (response.data) {
+        ElMessage.error(`住院号 ${form.value.hospital_number} 已存在，请使用其他住院号`)
+        checking.value = false
+        return
+      }
+    } catch (error: any) {
+      // 404错误表示住院号不存在，可以继续
+      if (error.response?.status === 404) {
+        // 住院号可用，继续下一步
+      } else {
+        // 其他错误
+        ElMessage.error('检查住院号失败: ' + (error.response?.data?.detail || error.message))
+        checking.value = false
+        return
+      }
+    } finally {
+      checking.value = false
+    }
+
+    // 住院号检查通过，进入下一步
+    currentStep.value++
   } else if (currentStep.value === 1) {
-    // 调用AI提取信息
+    // 第二步：调用AI提取信息
     if (!form.value.initial_note) {
       ElMessage.warning('请粘贴首次病程记录')
       return
     }
-    await extractPatientInfo()
+
+    // 先设置提取状态，然后提取信息，最后跳转
+    extracting.value = true
+    try {
+      await extractPatientInfo()
+      // 提取成功后跳转到下一步
+      currentStep.value++
+    } catch (error: any) {
+      // 提取失败，停留在当前步骤
+      console.error('提取患者信息失败:', error)
+    } finally {
+      extracting.value = false
+    }
   }
-  currentStep.value++
 }
 
 async function extractPatientInfo() {
@@ -120,11 +172,30 @@ async function extractPatientInfo() {
 async function handleSave() {
   saving.value = true
   try {
-    const response = await axios.post('http://127.0.0.1:8000/api/patients/', {
+    // 验证必需字段
+    if (!extractedInfo.value.admission_date) {
+      ElMessage.error('缺少入院日期，请重新提取患者信息')
+      return
+    }
+
+    // 构建请求数据，确保 admission_date 格式正确
+    const requestData = {
       hospital_number: form.value.hospital_number,
-      ...extractedInfo.value,
+      name: extractedInfo.value.name || '',
+      gender: extractedInfo.value.gender || '',
+      age: extractedInfo.value.age || 0,
+      admission_date: extractedInfo.value.admission_date, // 确保是 YYYY-MM-DD 格式
+      chief_complaint: extractedInfo.value.chief_complaint || '',
+      diagnosis: extractedInfo.value.diagnosis || '',
+      past_history: extractedInfo.value.past_history || '',
+      allergy_history: extractedInfo.value.allergy_history || '',
+      specialist_exam: extractedInfo.value.specialist_exam || '',
       initial_note: form.value.initial_note
-    })
+    }
+
+    console.log('[DEBUG] 发送患者创建请求:', requestData)
+
+    const response = await axios.post('http://127.0.0.1:8000/api/patients/', requestData)
 
     if (response.data) {
       // 初始化患者提醒
@@ -135,6 +206,7 @@ async function handleSave() {
       handleClose()
     }
   } catch (error: any) {
+    console.error('[ERROR] 创建患者失败:', error.response?.data)
     ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
   } finally {
     saving.value = false
@@ -152,6 +224,9 @@ async function initializeReminders(hospitalNumber: string) {
 function handleClose() {
   visible.value = false
   currentStep.value = 0
+  saving.value = false
+  checking.value = false
+  extracting.value = false
   form.value = {
     hospital_number: '',
     initial_note: ''
@@ -175,5 +250,17 @@ function previousStep() {
 
 .step-content {
   padding: 20px;
+}
+
+.specialist-exam {
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  font-size: 13px;
+  padding: 8px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
 }
 </style>

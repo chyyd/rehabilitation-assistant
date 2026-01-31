@@ -102,8 +102,13 @@
 
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="handleClose">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存修改</el-button>
+        <div class="footer-left">
+          <el-button type="warning" :icon="CircleCheck" @click="handleDischarge">办理出院</el-button>
+        </div>
+        <div class="footer-right">
+          <el-button @click="handleClose">取消</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">保存修改</el-button>
+        </div>
       </span>
     </template>
   </el-dialog>
@@ -111,7 +116,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { CircleCheck } from '@element-plus/icons-vue'
 import axios from 'axios'
 
 interface Props {
@@ -120,7 +126,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits(['update:modelValue', 'success'])
+const emit = defineEmits(['update:modelValue', 'success', 'discharged'])
 
 const visible = ref(props.modelValue)
 const loading = ref(false)
@@ -211,6 +217,43 @@ async function handleSave() {
   }
 }
 
+async function handleDischarge() {
+  try {
+    await ElMessageBox.confirm(
+      `确定要为患者 ${form.value.name || form.value.hospital_number} 办理出院吗？出院日期将设置为今天。`,
+      '出院确认',
+      {
+        confirmButtonText: '确定出院',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    )
+
+    saving.value = true
+
+    // 设置出院日期为今天
+    const today = new Date().toISOString().split('T')[0]
+
+    await axios.put(
+      `http://127.0.0.1:8000/api/patients/${form.value.hospital_number}`,
+      {
+        discharge_date: today
+      }
+    )
+
+    ElMessage.success('患者已办理出院')
+    emit('success')
+    emit('discharged')  // 通知父组件切换到出院患者标签页
+    handleClose()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error('出院办理失败: ' + (error.response?.data?.detail || error.message))
+    }
+  } finally {
+    saving.value = false
+  }
+}
+
 function handleClose() {
   visible.value = false
   form.value = {
@@ -242,5 +285,22 @@ function handleClose() {
 
 :deep(.el-input-number) {
   width: 100%;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.footer-left {
+  display: flex;
+  gap: 8px;
+}
+
+.footer-right {
+  display: flex;
+  gap: 8px;
 }
 </style>

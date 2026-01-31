@@ -21,7 +21,11 @@ class KnowledgeFileResponse(BaseModel):
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @router.get("/files", response_model=List[KnowledgeFileResponse])
 async def get_knowledge_files(session = Depends(get_session)):

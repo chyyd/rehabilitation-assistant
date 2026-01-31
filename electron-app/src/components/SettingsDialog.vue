@@ -8,80 +8,190 @@
     <el-tabs v-model="activeTab" class="settings-tabs">
       <!-- AI服务配置 -->
       <el-tab-pane label="AI服务" name="ai">
-        <el-form :model="aiConfig" label-width="120px">
+        <el-form :model="aiConfig" label-width="140px">
           <el-form-item label="默认服务">
-            <el-select v-model="aiConfig.default_service">
+            <el-select v-model="aiConfig.default_service" @change="handleServiceChange">
               <el-option label="DeepSeek" value="deepseek" />
               <el-option label="ModelScope" value="modelscope" />
-              <el-option label="Ollama" value="ollama" />
+              <el-option label="Kimi" value="kimi" />
+              <el-option label="自定义" value="custom" />
             </el-select>
             <div class="form-tip">选择默认的AI服务提供商</div>
           </el-form-item>
 
-          <el-divider content-position="left">DeepSeek 配置</el-divider>
+          <!-- DeepSeek 配置 -->
+          <div v-if="aiConfig.default_service === 'deepseek' || aiConfig.default_service === 'modelscope' || aiConfig.default_service === 'kimi'">
+            <el-divider content-position="left">
+              {{ getServiceLabel(aiConfig.default_service) }} 配置
+            </el-divider>
 
-          <el-form-item label="API密钥">
-            <el-input
-              v-model="aiConfig.deepseek_api_key"
-              type="password"
-              placeholder="请输入DeepSeek API密钥"
-              show-password
-            />
+            <el-form-item label="API密钥">
+              <el-input
+                v-model="aiConfig[`${aiConfig.default_service}_api_key`]"
+                type="password"
+                :placeholder="`请输入${getServiceLabel(aiConfig.default_service)} API密钥`"
+                show-password
+              />
+            </el-form-item>
+
+            <el-form-item label="Base URL">
+              <el-input
+                v-model="aiConfig[`${aiConfig.default_service}_base_url`]"
+                :placeholder="getDefaultBaseUrl(aiConfig.default_service)"
+              />
+            </el-form-item>
+
+            <el-form-item label="模型名称">
+              <el-input
+                v-model="aiConfig[`${aiConfig.default_service}_model`]"
+                :placeholder="getDefaultModel(aiConfig.default_service)"
+              />
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" @click="testAIService" :loading="testing">
+                <el-icon><MagicStick /></el-icon>
+                测试连接
+              </el-button>
+            </el-form-item>
+          </div>
+
+          <!-- 自定义服务配置 -->
+          <div v-if="aiConfig.default_service === 'custom'">
+            <el-divider content-position="left">自定义服务配置</el-divider>
+
+            <el-form-item label="服务名称">
+              <el-input
+                v-model="aiConfig.custom_name"
+                placeholder="例如：我的AI服务"
+              />
+            </el-form-item>
+
+            <el-form-item label="API密钥">
+              <el-input
+                v-model="aiConfig.custom_api_key"
+                type="password"
+                placeholder="请输入API密钥"
+                show-password
+              />
+            </el-form-item>
+
+            <el-form-item label="Base URL">
+              <el-input
+                v-model="aiConfig.custom_base_url"
+                placeholder="https://api.example.com/v1"
+              />
+            </el-form-item>
+
+            <el-form-item label="模型名称">
+              <el-input
+                v-model="aiConfig.custom_model"
+                placeholder="model-name"
+              />
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" @click="testAIService" :loading="testing">
+                <el-icon><MagicStick /></el-icon>
+                测试连接
+              </el-button>
+            </el-form-item>
+          </div>
+
+          <el-divider content-position="left">嵌入式模型设置</el-divider>
+
+          <el-form-item label="Embedding服务">
+            <el-select v-model="aiConfig.embedding_service">
+              <el-option label="硅基流动" value="siliconflow" />
+              <el-option label="ModelScope" value="modelscope_embed" />
+              <el-option label="自定义" value="custom_embed" />
+            </el-select>
+            <div class="form-tip">用于知识库向量化</div>
           </el-form-item>
 
-          <el-form-item label="Base URL">
-            <el-input
-              v-model="aiConfig.deepseek_base_url"
-              placeholder="https://api.deepseek.com/v1"
-            />
-          </el-form-item>
+          <!-- 硅基流动配置 -->
+          <div v-if="aiConfig.embedding_service === 'siliconflow'">
+            <el-form-item label="API密钥">
+              <el-input
+                v-model="aiConfig.siliconflow_api_key"
+                type="password"
+                placeholder="请输入硅基流动API密钥"
+                show-password
+              />
+            </el-form-item>
 
-          <el-form-item label="模型名称">
-            <el-input
-              v-model="aiConfig.deepseek_model"
-              placeholder="deepseek-chat"
-            />
-          </el-form-item>
+            <el-form-item label="Base URL">
+              <el-input
+                v-model="aiConfig.siliconflow_base_url"
+                placeholder="https://api.siliconflow.cn/v1"
+              />
+            </el-form-item>
 
-          <el-divider content-position="left">ModelScope 配置</el-divider>
+            <el-form-item label="模型名称">
+              <el-input
+                v-model="aiConfig.siliconflow_model"
+                placeholder="BAAI/bge-large-zh-v1.5"
+              />
+            </el-form-item>
+          </div>
 
-          <el-form-item label="API密钥">
-            <el-input
-              v-model="aiConfig.modelscope_api_key"
-              type="password"
-              placeholder="请输入ModelScope API密钥"
-              show-password
-            />
-          </el-form-item>
+          <!-- ModelScope Embedding配置 -->
+          <div v-if="aiConfig.embedding_service === 'modelscope_embed'">
+            <el-form-item label="API密钥">
+              <el-input
+                v-model="aiConfig.modelscope_api_key"
+                type="password"
+                placeholder="请输入ModelScope API密钥"
+                show-password
+              />
+            </el-form-item>
 
-          <el-form-item label="Base URL">
-            <el-input
-              v-model="aiConfig.modelscope_base_url"
-              placeholder="https://api-inference.modelscope.cn/v1"
-            />
-          </el-form-item>
+            <el-form-item label="Base URL">
+              <el-input
+                v-model="aiConfig.modelscope_base_url"
+                placeholder="https://api-inference.modelscope.cn/v1"
+              />
+            </el-form-item>
 
-          <el-form-item label="模型名称">
-            <el-input
-              v-model="aiConfig.modelscope_model"
-              placeholder="deepseek-ai/DeepSeek-V3"
-            />
-          </el-form-item>
+            <el-form-item label="模型名称">
+              <el-input
+                v-model="aiConfig.modelscope_embed_model"
+                placeholder="BAAI/bge-large-zh-v1.5"
+              />
+            </el-form-item>
+          </div>
 
-          <el-divider content-position="left">Ollama 配置</el-divider>
+          <!-- 自定义Embedding配置 -->
+          <div v-if="aiConfig.embedding_service === 'custom_embed'">
+            <el-form-item label="API密钥">
+              <el-input
+                v-model="aiConfig.custom_embed_api_key"
+                type="password"
+                placeholder="请输入API密钥"
+                show-password
+              />
+            </el-form-item>
 
-          <el-form-item label="Base URL">
-            <el-input
-              v-model="aiConfig.ollama_base_url"
-              placeholder="http://localhost:11434"
-            />
-          </el-form-item>
+            <el-form-item label="Base URL">
+              <el-input
+                v-model="aiConfig.custom_embed_base_url"
+                placeholder="https://api.example.com/v1"
+              />
+            </el-form-item>
 
-          <el-form-item label="模型名称">
-            <el-input
-              v-model="aiConfig.ollama_model"
-              placeholder="llama3.2"
-            />
+            <el-form-item label="模型名称">
+              <el-input
+                v-model="aiConfig.custom_embed_model"
+                placeholder="embedding-model"
+              />
+            </el-form-item>
+          </div>
+
+          <el-form-item>
+            <el-button @click="testEmbeddingService" :loading="testingEmbed">
+              <el-icon><MagicStick /></el-icon>
+              测试Embedding
+            </el-button>
           </el-form-item>
         </el-form>
       </el-tab-pane>
@@ -124,41 +234,81 @@
       </el-tab-pane>
 
       <!-- 模板管理 -->
-      <el-tab-pane label="模板管理" name="templates">
+      <el-tab-pane label="提取模板" name="templates">
         <div class="template-section">
           <!-- 文件上传和分析 -->
           <div class="upload-section">
             <h4>从病程记录文件提取模板</h4>
-            <p class="section-tip">上传包含多人病程记录的.md或.txt文件，AI将自动提取常用语句并分类</p>
+            <p class="section-tip">支持批量上传多个.md或.txt文件，AI将自动提取常用语句并分类</p>
 
             <el-upload
               class="upload-area"
               drag
+              multiple
               :auto-upload="false"
               :on-change="handleFileSelect"
+              :on-remove="handleFileRemove"
               accept=".md,.txt"
-              :show-file-list="false"
+              :file-list="fileList"
             >
               <el-icon :size="60" class="upload-icon"><Upload /></el-icon>
               <div class="upload-text">
-                <p>拖拽文件到此处或</p>
-                <p class="upload-tip">支持 .md 和 .txt 文件</p>
+                <p>拖拽文件到此处或点击上传</p>
+                <p class="upload-tip">支持多文件上传，仅支持 .md 和 .txt 文件</p>
               </div>
             </el-upload>
 
-            <div v-if="selectedFile" class="selected-file">
-              <div class="file-info">
-                <span>{{ selectedFile.name }}</span>
-                <el-button :icon="Close" circle text @click="clearFile" />
+            <!-- 已选文件列表 -->
+            <div v-if="selectedFiles.length > 0" class="selected-files-section">
+              <div class="files-header">
+                <span class="files-count">已选择 {{ selectedFiles.length }} 个文件</span>
+                <el-button link type="danger" size="small" @click="clearFiles">清空全部</el-button>
               </div>
+
+              <!-- 紧凑的文件列表 -->
+              <div class="files-list-compact">
+                <el-tag
+                  v-for="(file, index) in selectedFiles"
+                  :key="index"
+                  closable
+                  @close="removeFile(index)"
+                  :type="getFileStatusType(file.name)"
+                  class="file-tag"
+                  size="default"
+                >
+                  <el-icon class="tag-icon"><Document /></el-icon>
+                  {{ file.name }}
+                  <span class="file-size-tiny">({{ formatFileSize(file.size) }})</span>
+                  <span v-if="fileStatus[file.name]" class="file-status">
+                    {{ fileStatus[file.name] === 'analyzing' ? '⏳' : fileStatus[file.name] === 'done' ? '✓' : '✗' }}
+                  </span>
+                </el-tag>
+              </div>
+
+              <!-- 分析进度 -->
+              <div v-if="analyzing" class="progress-section">
+                <el-progress
+                  :percentage="analysisProgress.percentage"
+                  :format="() => analysisProgress.current"
+                  :stroke-width="20"
+                  :status="analysisProgress.status"
+                />
+                <div class="progress-info">
+                  <span>正在分析: {{ analysisProgress.currentFile }}</span>
+                  <span>{{ analysisProgress.completed }}/{{ analysisProgress.total }}</span>
+                </div>
+              </div>
+
               <el-button
                 type="primary"
                 :icon="MagicStick"
                 :loading="analyzing"
-                @click="analyzeFile"
-                :disabled="!selectedFile"
+                :disabled="analyzing"
+                @click="analyzeAllFiles"
+                size="large"
+                class="analyze-button"
               >
-                AI分析提取
+                {{ analyzing ? `分析中... (${analysisProgress.completed}/${analysisProgress.total})` : `一键分析所有文件 (${selectedFiles.length})` }}
               </el-button>
             </div>
           </div>
@@ -275,8 +425,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, Delete, Check, Plus, Close, MagicStick } from '@element-plus/icons-vue'
+import { Upload, Delete, Check, Plus, Close, MagicStick, Document } from '@element-plus/icons-vue'
 import axios from 'axios'
+import { eventBus } from '@/utils/eventBus'
 
 const props = defineProps<{
   modelValue: boolean
@@ -291,15 +442,48 @@ const saving = ref(false)
 // AI服务配置
 const aiConfig = ref({
   default_service: 'deepseek',
+
+  // DeepSeek配置
   deepseek_api_key: '',
   deepseek_base_url: 'https://api.deepseek.com/v1',
   deepseek_model: 'deepseek-chat',
+
+  // ModelScope配置
   modelscope_api_key: '',
   modelscope_base_url: 'https://api-inference.modelscope.cn/v1',
   modelscope_model: 'deepseek-ai/DeepSeek-V3',
-  ollama_base_url: 'http://localhost:11434',
-  ollama_model: 'llama3.2'
+
+  // Kimi配置
+  kimi_api_key: '',
+  kimi_base_url: 'https://api.moonshot.cn/v1',
+  kimi_model: 'moonshot-v1-8k',
+
+  // 自定义服务配置
+  custom_name: '',
+  custom_api_key: '',
+  custom_base_url: '',
+  custom_model: '',
+
+  // 嵌入式模型配置
+  embedding_service: 'siliconflow',
+
+  // 硅基流动
+  siliconflow_api_key: '',
+  siliconflow_base_url: 'https://api.siliconflow.cn/v1',
+  siliconflow_model: 'BAAI/bge-large-zh-v1.5',
+
+  // ModelScope Embedding
+  modelscope_embed_model: 'BAAI/bge-large-zh-v1.5',
+
+  // 自定义Embedding
+  custom_embed_api_key: '',
+  custom_embed_base_url: '',
+  custom_embed_model: ''
 })
+
+// 测试状态
+const testing = ref(false)
+const testingEmbed = ref(false)
 
 // 医生信息
 const doctorInfo = ref({
@@ -320,8 +504,19 @@ const generalSettings = ref({
 const knowledgeFiles = ref<any[]>([])
 
 // 模板管理相关
-const selectedFile = ref<File | null>(null)
+const selectedFiles = ref<File[]>([])
+const fileList = ref<any[]>([])
 const analyzing = ref(false)
+const analyzingFileName = ref('')
+const fileStatus = ref<Record<string, 'pending' | 'analyzing' | 'done' | 'failed'>>({})
+const analysisProgress = ref({
+  percentage: 0,
+  current: '',
+  currentFile: '',
+  completed: 0,
+  total: 0,
+  status: '' as any
+})
 const extractedPhrases = ref<Array<{ content: string; category: string }>>([])
 
 watch(() => props.modelValue, (val) => {
@@ -403,6 +598,57 @@ async function handleSave() {
     localStorage.setItem('doctor_info', JSON.stringify(doctorInfo.value))
     localStorage.setItem('general_settings', JSON.stringify(generalSettings.value))
 
+    // 同步AI配置到后端
+    try {
+      // 构建后端期望的服务配置格式
+      const servicesConfig: any = {}
+
+      // DeepSeek配置
+      if (aiConfig.value.deepseek_api_key) {
+        servicesConfig.deepseek = {
+          api_key: aiConfig.value.deepseek_api_key,
+          model: aiConfig.value.deepseek_model || 'deepseek-chat',
+          is_default: aiConfig.value.default_service === 'deepseek'
+        }
+      }
+
+      // ModelScope配置
+      if (aiConfig.value.modelscope_api_key) {
+        servicesConfig.modelscope = {
+          api_key: aiConfig.value.modelscope_api_key,
+          model: aiConfig.value.modelscope_model || 'deepseek-ai/DeepSeek-V3',
+          is_default: aiConfig.value.default_service === 'modelscope'
+        }
+      }
+
+      // Kimi配置
+      if (aiConfig.value.kimi_api_key) {
+        servicesConfig.kimi = {
+          api_key: aiConfig.value.kimi_api_key,
+          model: aiConfig.value.kimi_model || 'moonshot-v1-8k',
+          is_default: aiConfig.value.default_service === 'kimi'
+        }
+      }
+
+      // 自定义配置
+      if (aiConfig.value.custom_api_key && aiConfig.value.custom_name) {
+        servicesConfig.custom = {
+          api_key: aiConfig.value.custom_api_key,
+          model: aiConfig.value.custom_model || 'custom-model',
+          is_default: aiConfig.value.default_service === 'custom'
+        }
+      }
+
+      // 调用后端API更新配置
+      await axios.post('http://127.0.0.1:8000/api/ai/update-config', {
+        default_service: aiConfig.value.default_service,
+        services: servicesConfig
+      })
+    } catch (error) {
+      console.error('后端AI配置更新失败:', error)
+      // 不阻断保存流程，继续保存到localStorage
+    }
+
     ElMessage.success('设置保存成功')
     handleClose()
   } catch (error: any) {
@@ -418,50 +664,182 @@ function handleClose() {
 
 // 模板管理相关函数
 function handleFileSelect(file: any) {
-  selectedFile.value = file.raw
-  ElMessage.success(`已选择文件: ${file.name}`)
+  // 检查文件类型
+  const validTypes = ['text/markdown', 'text/plain', 'md', 'txt']
+  const fileExtension = file.name.split('.').pop()?.toLowerCase()
+
+  if (fileExtension !== 'md' && fileExtension !== 'txt') {
+    ElMessage.error('只支持 .md 和 .txt 文件')
+    return
+  }
+
+  // 检查是否已存在
+  const exists = selectedFiles.value.some(f => f.name === file.name)
+  if (exists) {
+    ElMessage.warning(`文件 ${file.name} 已存在`)
+    return
+  }
+
+  // 添加到已选文件列表
+  selectedFiles.value.push(file.raw)
+  fileList.value.push({
+    name: file.name,
+    size: file.size,
+    raw: file.raw
+  })
+
+  ElMessage.success(`已添加文件: ${file.name}`)
 }
 
-function clearFile() {
-  selectedFile.value = null
+function handleFileRemove(file: any) {
+  const index = selectedFiles.value.findIndex(f => f.name === file.name)
+  if (index > -1) {
+    selectedFiles.value.splice(index, 1)
+    fileList.value = fileList.value.filter(f => f.name !== file.name)
+  }
+}
+
+function removeFile(index: number) {
+  const file = selectedFiles.value[index]
+  selectedFiles.value.splice(index, 1)
+  fileList.value = fileList.value.filter(f => f.name !== file.name)
+  // 删除状态
+  if (fileStatus.value[file.name]) {
+    delete fileStatus.value[file.name]
+  }
+  ElMessage.info(`已移除文件: ${file.name}`)
+}
+
+function clearFiles() {
+  selectedFiles.value = []
+  fileList.value = []
   extractedPhrases.value = []
+  fileStatus.value = {}
+  analysisProgress.value = {
+    percentage: 0,
+    current: '',
+    currentFile: '',
+    completed: 0,
+    total: 0,
+    status: ''
+  }
+  ElMessage.info('已清空所有文件')
 }
 
-async function analyzeFile() {
-  if (!selectedFile.value) {
+function getFileStatusType(filename: string): string {
+  const status = fileStatus.value[filename]
+  const typeMap: Record<string, string> = {
+    'analyzing': 'warning',
+    'done': 'success',
+    'failed': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+async function analyzeAllFiles() {
+  if (selectedFiles.value.length === 0) {
     ElMessage.warning('请先选择文件')
     return
   }
 
   analyzing.value = true
+  const allPhrases: Array<{ content: string; category: string }> = []
+  let successCount = 0
+  let failCount = 0
+  const total = selectedFiles.value.length
+
+  // 初始化进度
+  analysisProgress.value = {
+    percentage: 0,
+    current: '0%',
+    currentFile: '',
+    completed: 0,
+    total: total,
+    status: ''
+  }
+
   try {
-    // 读取文件内容
-    const fileContent = await readFileContent(selectedFile.value)
+    ElMessage.info(`开始分析 ${total} 个文件...`)
 
-    // 显示开始处理消息
-    ElMessage.info('正在预处理文档，提取高频语句...')
+    // 逐个分析文件
+    for (let i = 0; i < total; i++) {
+      const file = selectedFiles.value[i]
+      analyzingFileName.value = file.name
 
-    // 调用后端AI分析API
-    const response = await axios.post('http://127.0.0.1:8000/api/templates/extract-phrases', {
-      content: fileContent,
-      filename: selectedFile.value.name
-    })
+      // 更新进度
+      analysisProgress.value.completed = i
+      analysisProgress.value.currentFile = file.name
+      analysisProgress.value.percentage = Math.round((i / total) * 100)
+      analysisProgress.value.current = `${Math.round((i / total) * 100)}%`
+      analysisProgress.value.status = 'warning'
 
-    if (response.data.success) {
-      extractedPhrases.value = response.data.phrases || []
+      // 标记为分析中
+      fileStatus.value[file.name] = 'analyzing'
 
-      // 显示详细处理信息
-      if (response.data.message) {
-        ElMessage.success(response.data.message)
-      } else {
-        ElMessage.success(`成功提取并优化了 ${extractedPhrases.value.length} 条语句`)
+      try {
+        // 读取文件内容
+        const fileContent = await readFileContent(file)
+
+        // 调用后端AI分析API
+        const response = await axios.post('http://127.0.0.1:8000/api/templates/extract-phrases', {
+          content: fileContent,
+          filename: file.name
+        })
+
+        if (response.data.success && response.data.phrases) {
+          // 合并语句，去重
+          response.data.phrases.forEach((phrase: { content: string; category: string }) => {
+            const exists = allPhrases.some(p =>
+              p.content === phrase.content && p.category === phrase.category
+            )
+            if (!exists) {
+              allPhrases.push(phrase)
+            }
+          })
+          successCount++
+
+          // 标记为完成
+          fileStatus.value[file.name] = 'done'
+        } else {
+          failCount++
+          fileStatus.value[file.name] = 'failed'
+        }
+      } catch (error: any) {
+        console.error(`分析文件 ${file.name} 失败:`, error)
+        failCount++
+        fileStatus.value[file.name] = 'failed'
       }
+
+      // 更新进度
+      analysisProgress.value.percentage = Math.round(((i + 1) / total) * 100)
+      analysisProgress.value.current = `${Math.round(((i + 1) / total) * 100)}%`
+    }
+
+    // 完成进度
+    analysisProgress.value.completed = total
+    analysisProgress.value.percentage = 100
+    analysisProgress.value.status = successCount === total ? 'success' : 'warning'
+    analysisProgress.value.current = '完成'
+
+    // 更新提取的语句列表
+    extractedPhrases.value = allPhrases
+
+    // 显示结果
+    if (successCount > 0) {
+      ElMessage.success(
+        `分析完成！成功 ${successCount} 个文件，失败 ${failCount} 个文件，共提取 ${allPhrases.length} 条语句`
+      )
+    } else {
+      ElMessage.error('所有文件分析失败，请检查文件格式和网络连接')
+      analysisProgress.value.status = 'exception'
     }
   } catch (error: any) {
-    console.error('AI分析失败:', error)
-    ElMessage.error('分析失败: ' + (error.response?.data?.detail || error.message))
+    console.error('批量分析失败:', error)
+    ElMessage.error('批量分析失败: ' + (error.response?.data?.detail || error.message))
+    analysisProgress.value.status = 'exception'
   } finally {
     analyzing.value = false
+    analyzingFileName.value = ''
   }
 }
 
@@ -522,14 +900,186 @@ async function saveTemplates() {
     })
 
     ElMessage.success(`成功保存 ${validPhrases.length} 条模板`)
-    // 清空提取结果
+
+    // 通知快速模板组件刷新
+    eventBus.emit('templates-updated')
+
+    // 清空提取结果和文件列表
     extractedPhrases.value = []
-    selectedFile.value = null
+    selectedFiles.value = []
+    fileList.value = []
   } catch (error: any) {
     console.error('保存失败:', error)
     ElMessage.error('保存失败: ' + (error.response?.data?.detail || error.message))
   } finally {
     saving.value = false
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// AI服务配置相关函数
+function getServiceLabel(service: string): string {
+  const labelMap: Record<string, string> = {
+    'deepseek': 'DeepSeek',
+    'modelscope': 'ModelScope',
+    'kimi': 'Kimi'
+  }
+  return labelMap[service] || service
+}
+
+function getDefaultBaseUrl(service: string): string {
+  const urlMap: Record<string, string> = {
+    'deepseek': 'https://api.deepseek.com/v1',
+    'modelscope': 'https://api-inference.modelscope.cn/v1',
+    'kimi': 'https://api.moonshot.cn/v1'
+  }
+  return urlMap[service] || ''
+}
+
+function getDefaultModel(service: string): string {
+  const modelMap: Record<string, string> = {
+    'deepseek': 'deepseek-chat',
+    'modelscope': 'deepseek-ai/DeepSeek-V3',
+    'kimi': 'moonshot-v1-8k'
+  }
+  return modelMap[service] || ''
+}
+
+function handleServiceChange() {
+  // 当切换默认服务时，初始化对应服务的默认值
+  const service = aiConfig.value.default_service
+
+  if (service !== 'custom') {
+    // 如果没有配置过，设置默认值
+    const baseUrlKey = `${service}_base_url`
+    const modelKey = `${service}_model`
+
+    if (!aiConfig.value[baseUrlKey]) {
+      aiConfig.value[baseUrlKey] = getDefaultBaseUrl(service)
+    }
+    if (!aiConfig.value[modelKey]) {
+      aiConfig.value[modelKey] = getDefaultModel(service)
+    }
+  }
+}
+
+async function testAIService() {
+  const service = aiConfig.value.default_service
+
+  // 根据不同服务获取配置
+  let apiKey: string = ''
+  let baseUrl: string = ''
+  let model: string = ''
+  let serviceName: string = ''
+
+  if (service === 'custom') {
+    apiKey = aiConfig.value.custom_api_key
+    baseUrl = aiConfig.value.custom_base_url
+    model = aiConfig.value.custom_model
+    serviceName = aiConfig.value.custom_name || '自定义服务'
+  } else {
+    apiKey = aiConfig.value[`${service}_api_key`]
+    baseUrl = aiConfig.value[`${service}_base_url`]
+    model = aiConfig.value[`${service}_model`]
+    serviceName = getServiceLabel(service)
+  }
+
+  // 验证必填字段
+  if (!apiKey) {
+    ElMessage.warning(`请先输入${serviceName}的API密钥`)
+    return
+  }
+  if (!baseUrl) {
+    ElMessage.warning(`请先输入${serviceName}的Base URL`)
+    return
+  }
+  if (!model) {
+    ElMessage.warning(`请先输入${serviceName}的模型名称`)
+    return
+  }
+
+  testing.value = true
+  try {
+    // 调用后端测试API
+    await axios.post('http://127.0.0.1:8000/api/ai/test', {
+      service,
+      api_key: apiKey,
+      base_url: baseUrl,
+      model
+    })
+
+    ElMessage.success(`${serviceName}连接测试成功！`)
+  } catch (error: any) {
+    console.error('AI服务测试失败:', error)
+    ElMessage.error(`连接测试失败: ${error.response?.data?.detail || error.message}`)
+  } finally {
+    testing.value = false
+  }
+}
+
+async function testEmbeddingService() {
+  const embedService = aiConfig.value.embedding_service
+
+  let apiKey: string = ''
+  let baseUrl: string = ''
+  let model: string = ''
+  let serviceName: string = ''
+
+  // 根据不同嵌入服务获取配置
+  if (embedService === 'siliconflow') {
+    apiKey = aiConfig.value.siliconflow_api_key
+    baseUrl = aiConfig.value.siliconflow_base_url
+    model = aiConfig.value.siliconflow_model
+    serviceName = '硅基流动'
+  } else if (embedService === 'modelscope_embed') {
+    apiKey = aiConfig.value.modelscope_api_key
+    baseUrl = aiConfig.value.modelscope_base_url
+    model = aiConfig.value.modelscope_embed_model
+    serviceName = 'ModelScope'
+  } else if (embedService === 'custom_embed') {
+    apiKey = aiConfig.value.custom_embed_api_key
+    baseUrl = aiConfig.value.custom_embed_base_url
+    model = aiConfig.value.custom_embed_model
+    serviceName = '自定义嵌入服务'
+  }
+
+  // 验证必填字段
+  if (!apiKey) {
+    ElMessage.warning(`请先输入${serviceName}的API密钥`)
+    return
+  }
+  if (!baseUrl) {
+    ElMessage.warning(`请先输入${serviceName}的Base URL`)
+    return
+  }
+  if (!model) {
+    ElMessage.warning(`请先输入${serviceName}的模型名称`)
+    return
+  }
+
+  testingEmbed.value = true
+  try {
+    // 调用后端测试嵌入服务API
+    await axios.post('http://127.0.0.1:8000/api/ai/test-embedding', {
+      service: embedService,
+      api_key: apiKey,
+      base_url: baseUrl,
+      model
+    })
+
+    ElMessage.success(`${serviceName} Embedding连接测试成功！`)
+  } catch (error: any) {
+    console.error('Embedding服务测试失败:', error)
+    ElMessage.error(`连接测试失败: ${error.response?.data?.detail || error.message}`)
+  } finally {
+    testingEmbed.value = false
   }
 }
 </script>
@@ -622,26 +1172,90 @@ async function saveTemplates() {
   color: #909399;
 }
 
-.selected-file {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
+.selected-files-section {
+  margin-top: 16px;
+  padding: 16px;
   background: #F5F7FA;
   border-radius: 8px;
-  margin-top: 12px;
 }
 
-.file-info {
+.files-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  flex: 1;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #DCDFE6;
 }
 
-.file-info span {
-  font-size: 13px;
-  color: #333;
+.files-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #409EFF;
+}
+
+.files-list-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 8px;
+  background: #FAFAFA;
+  border-radius: 6px;
+}
+
+.file-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.tag-icon {
+  font-size: 14px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.file-size-tiny {
+  font-size: 11px;
+  color: #909399;
+  margin-left: 2px;
+}
+
+.file-status {
+  margin-left: 4px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.progress-section {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #F5F7FA;
+  border-radius: 6px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #606266;
+}
+
+.progress-info span:first-child {
+  font-weight: 500;
+  color: #409EFF;
+}
+
+.analyze-button {
+  width: 100%;
 }
 
 .analysis-result {

@@ -6,7 +6,6 @@
       <TaskCard :patient="currentPatient" />
       <PatientInfoCard :patient="currentPatient" />
       <NoteGenerationCard :patient="currentPatient" />
-      <RehabPlanCard :patient="currentPatient" />
     </div>
   </div>
 </template>
@@ -17,7 +16,6 @@ import { usePatientStore } from '@/stores/patient'
 import TaskCard from './TaskCard.vue'
 import PatientInfoCard from './PatientInfoCard.vue'
 import NoteGenerationCard from './NoteGenerationCard.vue'
-import RehabPlanCard from './RehabPlanCard.vue'
 
 const patientStore = usePatientStore()
 const currentPatient = computed(() => patientStore.currentPatient)
@@ -27,11 +25,31 @@ const currentPatient = computed(() => patientStore.currentPatient)
 .workspace {
   height: 100%;
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .workspace-content {
   display: flex;
   flex-direction: column;
   gap: 15px;
+}
+
+/* 自定义滚动条 - 细小美观 */
+.workspace::-webkit-scrollbar {
+  width: 6px;
+}
+
+.workspace::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workspace::-webkit-scrollbar-thumb {
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.workspace::-webkit-scrollbar-thumb:hover {
+  background: rgba(144, 147, 153, 0.5);
 }
 </style>

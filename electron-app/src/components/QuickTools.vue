@@ -9,9 +9,36 @@
       class="template-selector"
       @change="loadTemplates"
     >
-      <el-option label="诊断模板" value="diagnosis" />
-      <el-option label="处理意见" value="treatment" />
-      <el-option label="宣教内容" value="education" />
+      <!-- 1. 基础评估与诊断 -->
+      <el-option-group label="📋 基础评估与诊断">
+        <el-option label="症状采集" value="基础评估与诊断-症状采集" />
+        <el-option label="体格检查" value="基础评估与诊断-体格检查" />
+        <el-option label="辅助检查" value="基础评估与诊断-辅助检查" />
+        <el-option label="诊断结论" value="基础评估与诊断-诊断结论" />
+      </el-option-group>
+
+      <!-- 2. 治疗方案制定 -->
+      <el-option-group label="💉 治疗方案制定">
+        <el-option label="中医特色治疗" value="治疗方案制定-中医特色治疗" />
+        <el-option label="中药治疗" value="治疗方案制定-中药治疗" />
+        <el-option label="西药治疗" value="治疗方案制定-西药治疗" />
+        <el-option label="康复治疗" value="治疗方案制定-康复治疗" />
+        <el-option label="护理操作" value="治疗方案制定-护理操作" />
+      </el-option-group>
+
+      <!-- 3. 管理与监测 -->
+      <el-option-group label="🔍 管理与监测">
+        <el-option label="医嘱与护理" value="管理与监测-医嘱与护理" />
+        <el-option label="风险防控" value="管理与监测-风险防控" />
+        <el-option label="病情监测" value="管理与监测-病情监测" />
+        <el-option label="并发症处理" value="管理与监测-并发症处理" />
+      </el-option-group>
+
+      <!-- 4. 医患沟通与记录 -->
+      <el-option-group label="💬 医患沟通与记录">
+        <el-option label="医患沟通" value="医患沟通与记录-医患沟通" />
+        <el-option label="健康宣教" value="医患沟通与记录-健康宣教" />
+      </el-option-group>
     </el-select>
 
     <!-- 模板列表 -->
@@ -26,6 +53,20 @@
         <div class="template-name">{{ template.template_name }}</div>
         <div class="template-content">{{ template.content }}</div>
       </div>
+    </div>
+
+    <!-- 明日提醒 -->
+    <div class="tomorrow-reminder-section">
+      <h4>明日提醒</h4>
+      <el-button
+        type="primary"
+        size="small"
+        :icon="Plus"
+        @click="showAddTomorrowReminder"
+        style="width: 100%"
+      >
+        添加明日提醒
+      </el-button>
     </div>
 
     <!-- 常用短语 -->
@@ -44,8 +85,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { eventBus } from '@/utils/eventBus'
 
@@ -64,6 +106,23 @@ const commonPhrases = ref([
   '无特殊不适主诉',
   '饮食睡眠尚可'
 ])
+
+// 处理模板更新事件
+function handleTemplatesUpdated() {
+  if (selectedCategory.value) {
+    loadTemplates()
+  }
+}
+
+// 组件挂载时监听事件
+onMounted(() => {
+  eventBus.on('templates-updated', handleTemplatesUpdated)
+})
+
+// 组件卸载时移除监听
+onUnmounted(() => {
+  eventBus.off('templates-updated', handleTemplatesUpdated)
+})
 
 // 加载模板
 async function loadTemplates() {
@@ -116,6 +175,12 @@ function insertPhrase(phrase: string) {
   eventBus.emit('insert-phrase', phrase)
   ElMessage.success('已插入到当日情况')
 }
+
+// 显示添加明日提醒对话框
+function showAddTomorrowReminder() {
+  // 触发事件，让MainView打开明日提醒对话框
+  eventBus.emit('show-tomorrow-reminder-dialog')
+}
 </script>
 
 <style scoped>
@@ -134,6 +199,19 @@ function insertPhrase(phrase: string) {
 .template-selector {
   width: 100%;
   margin-bottom: 20px;
+}
+
+/* 优化分组标签样式 */
+.template-selector :deep(.el-select-group__title) {
+  font-weight: 600;
+  color: #409EFF;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+
+.template-selector :deep(.el-select-group__wrap) {
+  padding: 0;
+  margin: 0;
 }
 
 .templates-section {
@@ -205,5 +283,40 @@ function insertPhrase(phrase: string) {
 .phrase-item:hover {
   background: #E5E5EA;
   border-color: #007AFF;
+}
+
+/* 明日提醒section */
+.tomorrow-reminder-section {
+  margin-top: 20px;
+}
+
+.tomorrow-reminder-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+/* 自定义滚动条 - 细小美观 */
+.quick-tools {
+  padding-right: 4px;
+}
+
+.quick-tools::-webkit-scrollbar {
+  width: 6px;
+}
+
+.quick-tools::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quick-tools::-webkit-scrollbar-thumb {
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.quick-tools::-webkit-scrollbar-thumb:hover {
+  background: rgba(144, 147, 153, 0.5);
 }
 </style>

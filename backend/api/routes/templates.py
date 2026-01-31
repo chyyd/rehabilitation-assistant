@@ -29,7 +29,11 @@ class TemplateResponse(BaseModel):
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @router.get("/")
 async def get_templates(
@@ -209,12 +213,12 @@ async def extract_phrases(
         ai_manager = managers['ai_manager']
 
         # 获取AI服务
-        ai_service = ai_manager.get_default_service()
+        ai_service = ai_manager.get_service()
         if not ai_service:
             raise HTTPException(status_code=400, detail="AI服务未配置")
 
         # 第一步：Python预处理 - 提取高频语句
-        from utils.text_processor import preprocess_medical_records, optimize_phrases_for_ai
+        from backend.utils.text_processor import preprocess_medical_records, optimize_phrases_for_ai
 
         preprocessed_phrases = preprocess_medical_records(request.content, max_phrases=80)
 

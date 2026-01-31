@@ -37,7 +37,11 @@ class RehabProgressResponse(BaseModel):
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @router.get("/patient/{hospital_number}", response_model=RehabPlanResponse)
 async def get_rehab_plan(hospital_number: str, session = Depends(get_session)):

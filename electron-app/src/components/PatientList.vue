@@ -1,71 +1,102 @@
 <template>
   <div class="patient-list">
-    <div class="list-header">
-      <h3>今日待办</h3>
-      <el-badge :value="patientStore.patients?.length || 0" class="count-badge" />
-    </div>
+    <el-tabs v-model="activeTab" class="patient-tabs">
+      <el-tab-pane label="在院患者" name="active">
+        <div class="list-header">
+          <h3>在院患者</h3>
+          <el-badge :value="activePatients.length" class="count-badge" />
+        </div>
 
-    <div v-if="patientStore.loading" class="loading">
-      <el-skeleton :rows="3" animated />
-    </div>
+        <div v-if="patientStore.loading" class="loading">
+          <el-skeleton :rows="3" animated />
+        </div>
 
-    <div v-else class="patient-cards">
-      <div
-        v-for="patient in sortedPatients"
-        :key="patient.id"
-        class="patient-card"
-        :class="getPriorityClass(patient)"
-      >
-        <div class="card-header" @click="selectPatient(patient)">
-          <span class="priority-icon">{{ getPriorityIcon(patient) }}</span>
-          <div class="patient-info">
-            <div class="patient-name">{{ patient.name || '未知' }}</div>
-            <div class="patient-meta">
-              第{{ patient.days_in_hospital }}天 | {{ patient.hospital_number }}
+        <div v-else class="patient-cards">
+          <div
+            v-for="patient in sortedPatients"
+            :key="patient.id"
+            class="patient-card"
+            :class="getPriorityClass(patient)"
+          >
+            <div class="card-header" @click="selectPatient(patient)">
+              <span class="priority-icon">{{ getPriorityIcon(patient) }}</span>
+              <div class="patient-info">
+                <div class="patient-name">{{ patient.name || '未知' }}</div>
+                <div class="patient-meta">
+                  第{{ patient.days_in_hospital }}天 | {{ patient.hospital_number }}
+                </div>
+              </div>
+            </div>
+            <div class="patient-diagnosis" @click="selectPatient(patient)">
+              {{ patient.diagnosis || '未填写诊断' }}
+            </div>
+            <div class="card-actions">
+              <el-button
+                :icon="Edit"
+                size="small"
+                text
+                @click.stop="showEditDialog(patient)"
+              >
+                编辑
+              </el-button>
             </div>
           </div>
         </div>
-        <div class="patient-diagnosis" @click="selectPatient(patient)">
-          {{ patient.diagnosis || '未填写诊断' }}
-        </div>
-        <div class="card-actions">
-          <el-button
-            :icon="Edit"
-            size="small"
-            text
-            @click.stop="showEditDialog(patient)"
-          >
-            编辑
-          </el-button>
-        </div>
-      </div>
-    </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="出院患者" name="discharged">
+        <DischargedPatientList @undoDischarge="handleUndoDischarge" />
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 编辑患者对话框 -->
     <EditPatientDialog
       v-model="editDialogVisible"
       :patient="selectedPatient"
       @success="handleEditSuccess"
+      @discharged="handleDischarged"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { Edit } from '@element-plus/icons-vue'
 import { usePatientStore } from '@/stores/patient'
 import EditPatientDialog from './EditPatientDialog.vue'
+import DischargedPatientList from './DischargedPatientList.vue'
 import { ElMessage } from 'element-plus'
 
 const patientStore = usePatientStore()
 const editDialogVisible = ref(false)
 const selectedPatient = ref<any>(null)
+const activeTab = ref('active')
+
+// 组件挂载时加载患者数据
+onMounted(async () => {
+  await patientStore.fetchPatients()
+})
+
+// 监听标签页切换，切换到出院患者时刷新数据
+watch(activeTab, async (newTab) => {
+  if (newTab === 'discharged') {
+    await patientStore.fetchPatients()
+  }
+})
+
+// 获取所有患者
+const allPatients = computed(() => patientStore.patients || [])
+
+// 筛选在院患者（没有出院日期的）
+const activePatients = computed(() => {
+  if (!allPatients.value || !Array.isArray(allPatients.value)) return []
+  return allPatients.value.filter(p => !p.discharge_date)
+})
 
 const sortedPatients = computed(() => {
-  const pts = patientStore.patients
-  if (!pts || !Array.isArray(pts)) return []
+  if (!activePatients.value || !Array.isArray(activePatients.value)) return []
 
-  return [...pts].sort((a, b) => {
+  return [...activePatients.value].sort((a, b) => {
     // 按优先级排序：紧急 > 高 > 普通
     const priorityMap = { urgent: 3, high: 2, normal: 1 }
     const priorityA = getPriority(a)
@@ -105,6 +136,17 @@ async function handleEditSuccess() {
   await patientStore.fetchPatients()
   ElMessage.success('患者信息已更新')
 }
+
+function handleDischarged() {
+  // 切换到出院患者标签页
+  activeTab.value = 'discharged'
+}
+
+function handleUndoDischarge() {
+  console.log('[PatientList] 收到撤销出院事件，切换到在院患者标签页')
+  // 切换回在院患者标签页
+  activeTab.value = 'active'
+}
 </script>
 
 <style scoped>
@@ -113,6 +155,21 @@ async function handleEditSuccess() {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.patient-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.patient-tabs :deep(.el-tab-pane) {
+  height: 100%;
 }
 
 .list-header {
@@ -201,5 +258,50 @@ async function handleEditSuccess() {
 .priority-normal {
   background: #F0FFF4;
   border-color: #34C759;
+}
+
+/* 自定义滚动条 - 细小美观 */
+.patient-tabs :deep(.el-tabs__content) {
+  padding-right: 4px;
+}
+
+.patient-tabs :deep(.el-tabs__content::-webkit-scrollbar) {
+  width: 6px;
+}
+
+.patient-tabs :deep(.el-tabs__content::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.patient-tabs :deep(.el-tabs__content::-webkit-scrollbar-thumb) {
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.patient-tabs :deep(.el-tabs__content::-webkit-scrollbar-thumb:hover) {
+  background: rgba(144, 147, 153, 0.5);
+}
+
+.patient-cards {
+  padding-right: 4px;
+}
+
+.patient-cards::-webkit-scrollbar {
+  width: 6px;
+}
+
+.patient-cards::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.patient-cards::-webkit-scrollbar-thumb {
+  background: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.patient-cards::-webkit-scrollbar-thumb:hover {
+  background: rgba(144, 147, 153, 0.5);
 }
 </style>

@@ -24,7 +24,11 @@ class ReminderResponse(BaseModel):
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @router.get("/today")
 async def get_today_reminders(
@@ -79,6 +83,104 @@ async def get_today_reminders(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/tomorrow")
+async def get_tomorrow_reminders(
+    session = Depends(get_session)
+):
+    """获取明日提醒"""
+    try:
+        from database.models import Reminder
+        from sqlalchemy import and_
+
+        from datetime import timedelta
+        tomorrow = date.today() + timedelta(days=1)
+
+        # 构建查询
+        query = session.query(Reminder).filter(
+            and_(
+                Reminder.reminder_date == tomorrow,
+                Reminder.is_completed == False
+            )
+        )
+
+        reminders = query.all()
+
+        # 格式化返回
+        result = []
+        for reminder in reminders:
+            result.append(ReminderResponse(
+                id=reminder.id,
+                patient_id=reminder.patient_id,
+                hospital_number=reminder.hospital_number,
+                reminder_type=reminder.reminder_type,
+                reminder_date=reminder.reminder_date,
+                day_number=reminder.day_number,
+                description=reminder.description,
+                priority=reminder.priority,
+                is_completed=reminder.is_completed,
+                completed_at=reminder.completed_at
+            ))
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/custom")
+async def create_custom_reminder(
+    reminder_data: dict,
+    session = Depends(get_session)
+):
+    """创建自定义提醒（简化版，用于明日提醒）"""
+    try:
+        from database.models import Reminder, Patient
+
+        # 获取患者
+        patient = session.query(Patient).filter(
+            Patient.hospital_number == reminder_data.get("hospital_number")
+        ).first()
+
+        if not patient:
+            raise HTTPException(status_code=404, detail="患者不存在")
+
+        # 处理提醒日期
+        reminder_date_str = reminder_data.get("reminder_date")
+        if reminder_date_str:
+            # 如果是字符串，转换为date对象
+            if isinstance(reminder_date_str, str):
+                from datetime import datetime
+                reminder_date = datetime.strptime(reminder_date_str, "%Y-%m-%d").date()
+            else:
+                reminder_date = reminder_date_str
+        else:
+            reminder_date = date.today()
+
+        # 计算住院天数
+        days_in_hospital = (reminder_date - patient.admission_date).days + 1
+
+        # 创建提醒（简化版：固定类型为"提醒"，优先级为"高"）
+        new_reminder = Reminder(
+            patient_id=patient.id,
+            hospital_number=patient.hospital_number,
+            reminder_type="提醒",
+            reminder_date=reminder_date,
+            day_number=days_in_hospital,
+            description=reminder_data.get("description", ""),
+            priority="高"
+        )
+
+        session.add(new_reminder)
+        session.commit()
+
+        return {
+            "success": True,
+            "message": "提醒创建成功"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.put("/{reminder_id}/complete")
 async def mark_reminder_complete(
     reminder_id: int,
@@ -103,6 +205,35 @@ async def mark_reminder_complete(
         return {
             "success": True,
             "message": "提醒已标记为完成"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{reminder_id}")
+async def delete_reminder(
+    reminder_id: int,
+    session = Depends(get_session)
+):
+    """删除提醒"""
+    try:
+        from database.models import Reminder
+
+        reminder = session.query(Reminder).filter(
+            Reminder.id == reminder_id
+        ).first()
+
+        if not reminder:
+            raise HTTPException(status_code=404, detail="提醒不存在")
+
+        session.delete(reminder)
+        session.commit()
+
+        return {
+            "success": True,
+            "message": "提醒已删除"
         }
     except HTTPException:
         raise
@@ -212,6 +343,26 @@ async def initialize_patient_reminders(
                 "reminder_date": date.today(),
                 "day_number": days_in_hospital + 1,
                 "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital + 1}天，完成初次康复评估",
+                "priority": "高"
+            })
+
+        # 入院第二天：查看检查
+        if days_in_hospital == 1:
+            reminders_to_create.append({
+                "reminder_type": "检查",
+                "reminder_date": date.today(),
+                "day_number": days_in_hospital + 1,
+                "description": f"{patient.name or patient.hospital_number} 入院第2天，查看实验室检查和放射线检查结果",
+                "priority": "高"
+            })
+
+        # 每15天：评估恢复情况
+        if (days_in_hospital + 1) % 15 == 0:
+            reminders_to_create.append({
+                "reminder_type": "评估",
+                "reminder_date": date.today(),
+                "day_number": days_in_hospital + 1,
+                "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital + 1}天（15天周期），评估恢复情况",
                 "priority": "高"
             })
 

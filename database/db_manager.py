@@ -15,7 +15,17 @@ class DBManager:
 
     def __init__(self, db_path: str = "./rehab_assistant.db"):
         """初始化数据库连接"""
-        self.engine = create_engine(f'sqlite:///{db_path}', echo=False)
+        self.engine = create_engine(
+            f'sqlite:///{db_path}',
+            echo=False,
+            pool_size=20,          # 增加连接池大小
+            max_overflow=40,       # 增加最大溢出连接数
+            pool_timeout=30,       # 连接超时时间
+            pool_recycle=3600,     # 连接回收时间（1小时）
+            connect_args={
+                "check_same_thread": False  # SQLite 特有配置
+            }
+        )
         self.SessionLocal = sessionmaker(bind=self.engine)
         self.create_tables()
 

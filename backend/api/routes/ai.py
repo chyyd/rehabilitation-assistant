@@ -22,10 +22,26 @@ class GenerateNoteRequest(BaseModel):
 class GenerateRehabPlanRequest(BaseModel):
     hospital_number: str
 
+class TestAIServiceRequest(BaseModel):
+    service: str
+    api_key: str
+    base_url: str
+    model: str
+
+class TestEmbeddingRequest(BaseModel):
+    service: str
+    api_key: str
+    base_url: str
+    model: str
+
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 def get_managers(request: Request):
     """获取管理器依赖"""
@@ -44,12 +60,15 @@ async def extract_patient_info(
         ai_manager = managers['ai_manager']
 
         # 获取AI服务
-        ai_service = ai_manager.get_default_service()
+        ai_service = ai_manager.get_service()
         if not ai_service:
             raise HTTPException(status_code=400, detail="AI服务未配置")
 
         # 调用AI提取信息
         extracted_info = ai_service.extract_patient_info(request.initial_note)
+
+        # 打印提取结果用于调试
+        print(f"[DEBUG] AI提取的患者信息: {extracted_info}")
 
         return {
             "success": True,
@@ -58,6 +77,10 @@ async def extract_patient_info(
     except HTTPException:
         raise
     except Exception as e:
+        # 打印详细错误信息
+        print(f"[ERROR] 提取患者信息失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"提取失败: {str(e)}")
 
 @router.post("/generate-note")
@@ -81,7 +104,7 @@ async def generate_note(
             raise HTTPException(status_code=404, detail="患者不存在")
 
         # 获取AI服务
-        ai_service = ai_manager.get_default_service()
+        ai_service = ai_manager.get_service()
         if not ai_service:
             raise HTTPException(status_code=400, detail="AI服务未配置")
 
@@ -164,7 +187,7 @@ async def generate_rehab_plan(
             raise HTTPException(status_code=404, detail="患者不存在")
 
         # 获取AI服务
-        ai_service = ai_manager.get_default_service()
+        ai_service = ai_manager.get_service()
         if not ai_service:
             raise HTTPException(status_code=400, detail="AI服务未配置")
 
@@ -229,3 +252,121 @@ async def generate_rehab_plan(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+@router.post("/test")
+async def test_ai_service(request: TestAIServiceRequest):
+    """测试AI服务连接"""
+    try:
+        from ai_services.service_manager import AIServiceManager
+        from openai import OpenAI
+
+        # 创建临时客户端测试连接
+        client = OpenAI(
+            api_key=request.api_key,
+            base_url=request.base_url
+        )
+
+        # 发送测试请求
+        response = client.chat.completions.create(
+            model=request.model,
+            messages=[
+                {"role": "user", "content": "测试连接"}
+            ],
+            max_tokens=10,
+            temperature=0.5
+        )
+
+        return {
+            "success": True,
+            "message": "连接测试成功",
+            "model": request.model
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"连接失败: {str(e)}")
+
+@router.post("/test-embedding")
+async def test_embedding_service(request: TestEmbeddingRequest):
+    """测试Embedding服务连接"""
+    try:
+        from openai import OpenAI
+
+        # 创建临时客户端测试连接
+        client = OpenAI(
+            api_key=request.api_key,
+            base_url=request.base_url
+        )
+
+        # 发送测试请求
+        response = client.embeddings.create(
+            model=request.model,
+            input="测试文本"
+        )
+
+        return {
+            "success": True,
+            "message": "Embedding连接测试成功",
+            "model": request.model,
+            "dimension": len(response.data[0].embedding)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"连接失败: {str(e)}")
+
+class UpdateAIConfigRequest(BaseModel):
+    """更新AI配置请求"""
+    default_service: str
+    services: dict
+
+@router.post("/update-config")
+async def update_ai_config(
+    request: UpdateAIConfigRequest,
+    app_request: Request
+):
+    """更新AI服务配置"""
+    try:
+        import json
+        import os
+        from ai_services.service_manager import AIServiceManager
+
+        ai_manager = app_request.app.state.ai_manager
+
+        # 重新初始化AI服务管理器
+        new_manager = AIServiceManager({"ai_services": request.services})
+
+        # 更新app中的ai_manager
+        app_request.app.state.ai_manager = new_manager
+
+        # 将配置写入config.json文件
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "config.json")
+
+        try:
+            # 读取现有配置
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+
+            # 更新ai_services部分
+            if "ai_services" not in config:
+                config["ai_services"] = {}
+
+            config["ai_services"]["default_service"] = request.default_service
+
+            # 更新各个服务的配置
+            for provider, settings in request.services.items():
+                if provider not in config["ai_services"]:
+                    config["ai_services"][provider] = {}
+
+                config["ai_services"][provider].update(settings)
+
+            # 写回文件
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            print(f"写入config.json失败: {e}")
+            # 不阻断配置更新流程
+
+        return {
+            "success": True,
+            "message": "AI配置已更新并已保存"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")

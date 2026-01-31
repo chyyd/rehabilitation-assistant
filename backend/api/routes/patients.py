@@ -44,13 +44,20 @@ class PatientResponse(BaseModel):
     discharge_date: Optional[date]
     diagnosis: Optional[str]
     chief_complaint: Optional[str]
+    past_history: Optional[str]
+    allergy_history: Optional[str]
+    specialist_exam: Optional[str]
     # 计算字段：住院天数
     days_in_hospital: int
 
 def get_session(request: Request):
     """获取数据库会话"""
     db_manager = request.app.state.db_manager
-    return db_manager.get_session()
+    session = db_manager.get_session()
+    try:
+        yield session
+    finally:
+        session.close()
 
 @router.get("/", response_model=List[PatientResponse])
 async def get_patients(
@@ -100,6 +107,9 @@ async def get_patients(
                 discharge_date=p.discharge_date,
                 diagnosis=p.diagnosis,
                 chief_complaint=p.chief_complaint,
+                past_history=p.past_history,
+                allergy_history=p.allergy_history,
+                specialist_exam=p.specialist_exam,
                 days_in_hospital=days
             ))
 
@@ -136,6 +146,9 @@ async def get_patient(hospital_number: str, session = Depends(get_session)):
             discharge_date=patient.discharge_date,
             diagnosis=patient.diagnosis,
             chief_complaint=patient.chief_complaint,
+            past_history=patient.past_history,
+            allergy_history=patient.allergy_history,
+            specialist_exam=patient.specialist_exam,
             days_in_hospital=days
         )
     except HTTPException:
@@ -176,6 +189,9 @@ async def create_patient(patient: PatientCreate, session = Depends(get_session))
             discharge_date=new_patient.discharge_date,
             diagnosis=new_patient.diagnosis,
             chief_complaint=new_patient.chief_complaint,
+            past_history=new_patient.past_history,
+            allergy_history=new_patient.allergy_history,
+            specialist_exam=new_patient.specialist_exam,
             days_in_hospital=days
         )
     except HTTPException:
@@ -227,6 +243,9 @@ async def update_patient(
             discharge_date=existing_patient.discharge_date,
             diagnosis=existing_patient.diagnosis,
             chief_complaint=existing_patient.chief_complaint,
+            past_history=existing_patient.past_history,
+            allergy_history=existing_patient.allergy_history,
+            specialist_exam=existing_patient.specialist_exam,
             days_in_hospital=days
         )
     except HTTPException:

@@ -40,36 +40,90 @@ class KimiService(AIService):
 
     def extract_patient_info(self, initial_note: str) -> dict:
         """从首次病程记录提取患者信息"""
-        prompt = f"""你是一位专业的病历录入助手。请从以下首次病程记录中提取结构化信息，以JSON格式返回：
+        prompt = f"""你是一位专业的病历录入助手。请从以下首次病程记录中提取结构化信息，以JSON格式返回。
 
 首次病程记录：
 {initial_note}
 
-需要提取的字段：
-- 姓名
-- 性别
-- 年龄
-- 入院日期（格式：YYYY-MM-DD）
-- 主诉
-- 诊断
-- 既往史（如有）
-- 过敏史（如有）
+**重要要求：**
+1. 必须返回严格的JSON格式，不要包含其他文字说明
+2. 需要提取的字段如下：
+   - name: 姓名
+   - gender: 性别（男/女）
+   - age: 年龄（数字）
+   - admission_date: 入院日期（格式：YYYY-MM-DD）
+   - chief_complaint: 主诉
+   - diagnosis: 诊断（包括中医和西医诊断）
+   - past_history: 既往史
+   - allergy_history: 过敏史（如果没有，填"无"）
+   - specialist_exam: 专科查体（包括完整的体格检查内容）
+
+3. 请返回如下格式的JSON：
+{{
+    "name": "患者姓名",
+    "gender": "性别",
+    "age": 年龄数字,
+    "admission_date": "YYYY-MM-DD",
+    "chief_complaint": "主诉内容",
+    "diagnosis": "诊断内容",
+    "past_history": "既往史内容",
+    "allergy_history": "过敏史内容",
+    "specialist_exam": "专科查体完整内容"
+}}
 
 请只返回JSON，不要其他内容。"""
 
         messages = [
-            {"role": "system", "content": "你是专业的医疗信息提取助手。"},
+            {"role": "system", "content": "你是专业的医疗信息提取助手，擅长从病历中提取结构化数据。"},
             {"role": "user", "content": prompt}
         ]
 
-        response = self._call_api(messages, temperature=0.3)
-        return response
+        try:
+            import json
+            import re
+
+            response = self._call_api(messages, temperature=0.3)
+
+            # 清理响应中的markdown代码块标记
+            cleaned_response = response.strip()
+            cleaned_response = re.sub(r'^```json\s*', '', cleaned_response, flags=re.DOTALL)
+            cleaned_response = re.sub(r'^```\s*', '', cleaned_response, flags=re.DOTALL)
+            cleaned_response = re.sub(r'\s*```\s*$', '', cleaned_response, flags=re.DOTALL)
+
+            # 解析JSON
+            patient_data = json.loads(cleaned_response)
+
+            # 验证必需字段
+            required_fields = ['name', 'gender', 'age', 'admission_date']
+            missing_fields = [field for field in required_fields if not patient_data.get(field)]
+
+            if missing_fields:
+                raise Exception(f"缺少必需字段: {', '.join(missing_fields)}")
+
+            return patient_data
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"AI返回的内容无法解析为JSON: {str(e)}\n原始响应: {response}")
+        except Exception as e:
+            raise Exception(f"提取患者信息失败: {str(e)}")
 
     def generate_progress_note(self, context: dict) -> str:
         """生成病程记录"""
         # 获取医生信息
         doctor_info = context.get('doctor_info', {}) or {}
         record_type = context.get('record_type', '住院医师查房')
+
+        # 根据记录类型确定标题中的医生姓名
+        doctor_name_in_title = ''
+        if record_type == '住院医师查房':
+            doctor_name_in_title = doctor_info.get('resident', '')
+        elif record_type == '主治医师查房':
+            doctor_name_in_title = doctor_info.get('attending', '')
+        elif record_type == '主任医师查房':
+            doctor_name_in_title = doctor_info.get('chief', '')
+
+        # 构建标题（包含医生姓名）
+        title_doctor_part = f" {doctor_name_in_title}" if doctor_name_in_title else ""
 
         # 根据记录类型生成签名（参照 rounds_generator.py 的格式）
         signature_lines = []
@@ -140,13 +194,13 @@ class KimiService(AIService):
 1. 语言风格符合中医病历规范
 2. 根据记录类型调整内容详略（住院医师详细，主治/主任医师简洁）
 3. 主诉部分结合今日情况更新
-4. 查体部分按实际情况描述，如无特殊变化可写"查体同前"
+4. **查体部分：必须保留今日情况中的查体内容，包括"腹软无压痛。"后面的专科检查信息，不要简化为"查体同前"**
 5. 分析和处理意见要体现中医特色和康复专业特点
 6. 字数控制在200-400字
 7. **重要：不需要输出签名，签名会自动添加**
 
 请直接输出病程记录内容（不要包含签名），格式如下：
-YYYY-MM-DD HH:MM {context['record_type']}
+YYYY-MM-DD HH:MM{title_doctor_part} {context['record_type']}
 主诉：...
 查体：...
 分析：...
@@ -281,26 +335,43 @@ YYYY-MM-DD HH:MM {context['record_type']}
 2. 去除语句中的具体信息（如人名、具体日期、床号等）
 3. 语句归类：将语句分到合适的类别中
 
-类别包括：
-1. 症状描述类：描述患者症状、表现的语句
-2. 检查结果类：描述各类检查结果的语句
-3. 治疗方案类：描述治疗措施的语句
-4. 康复训练类：描述康复训练项目的语句
-5. 护理事项类：描述护理注意事项的语句
-6. 病情变化类：描述病情变化的语句
-7. 用药记录类：描述用药情况的语句
+**重要：必须使用以下分类体系，不要创建新的类别：**
+
+**1. 基础评估与诊断**
+- 症状采集（主诉、现病史、既往史）
+- 体格检查（肌力、肌张力、关节活动度、平衡功能）
+- 辅助检查（影像学、实验室检查、电生理检查）
+- 诊断结论（中医诊断、西医诊断）
+
+**2. 治疗方案制定**
+- 中医特色治疗（针刺治疗、电针参数、方义解析）
+- 中药治疗（方剂名称、药物组成、剂量、煎服法）
+- 西药治疗（药物名称、剂量、给药途径、治疗目的）
+- 康复治疗（运动功能训练、训练方法、强度）
+- 护理操作（分级护理、特殊操作如导尿/吸痰）
+
+**3. 管理与监测**
+- 医嘱与护理（饮食类别、护理级别、体位要求）
+- 风险防控（跌倒/压疮/误吸/血栓预防措施）
+- 病情监测（生命体征记录、血糖/血压监测、症状变化）
+- 并发症处理（感染、痉挛、肩手综合征的管理）
+
+**4. 医患沟通与记录**
+- 医患沟通（知情同意、康复预期、费用说明）
+- 健康宣教（家庭训练指导、生活方式指导、用药教育）
 
 要求：
 1. 优化后的语句要简洁、通用、可复用
 2. 保持原意，但使表达更专业
 3. 如果语句过短或无意义，可以不处理
 4. 请处理所有语句
+5. **每个语句必须归入上述4个大类下的具体二级分类中，category字段格式为："大类名称-二级分类"，例如："基础评估与诊断-症状采集"**
 
 请以JSON格式返回，格式如下：
 [
     {{
         "content": "优化后的语句内容",
-        "category": "类别名称"
+        "category": "大类名称-二级分类名称"
     }}
 ]
 
@@ -312,26 +383,43 @@ YYYY-MM-DD HH:MM {context['record_type']}
 【病程记录内容】
 {content}
 
-请分析这些病程记录，提取出：
-1. 症状描述类：描述患者症状、表现的语句
-2. 检查结果类：描述各类检查结果的语句
-3. 治疗方案类：描述治疗措施的语句
-4. 康复训练类：描述康复训练项目的语句
-5. 护理事项类：描述护理注意事项的语句
-6. 病情变化类：描述病情变化的语句
-7. 用药记录类：描述用药情况的语句
+请分析这些病程记录，按照以下分类体系提取语句：
+
+**1. 基础评估与诊断**
+- 症状采集（主诉、现病史、既往史）
+- 体格检查（肌力、肌张力、关节活动度、平衡功能）
+- 辅助检查（影像学、实验室检查、电生理检查）
+- 诊断结论（中医诊断、西医诊断）
+
+**2. 治疗方案制定**
+- 中医特色治疗（针刺治疗、电针参数、方义解析）
+- 中药治疗（方剂名称、药物组成、剂量、煎服法）
+- 西药治疗（药物名称、剂量、给药途径、治疗目的）
+- 康复治疗（运动功能训练、训练方法、强度）
+- 护理操作（分级护理、特殊操作如导尿/吸痰）
+
+**3. 管理与监测**
+- 医嘱与护理（饮食类别、护理级别、体位要求）
+- 风险防控（跌倒/压疮/误吸/血栓预防措施）
+- 病情监测（生命体征记录、血糖/血压监测、症状变化）
+- 并发症处理（感染、痉挛、肩手综合征的管理）
+
+**4. 医患沟通与记录**
+- 医患沟通（知情同意、康复预期、费用说明）
+- 健康宣教（家庭训练指导、生活方式指导、用药教育）
 
 要求：
 1. 提取的语句要简洁、通用、可复用
-2. 每个类别提取3-5条最常用的语句
+2. 每个二级分类提取3-5条最常用的语句
 3. 语句要完整，符合医疗文书规范
 4. 避免提取过于具体的人名、日期等信息
+5. **category字段格式为："大类名称-二级分类名称"，例如："基础评估与诊断-症状采集"**
 
 请以JSON格式返回，格式如下：
 [
     {{
         "content": "语句内容",
-        "category": "类别名称"
+        "category": "大类名称-二级分类名称"
     }}
 ]
 
@@ -347,7 +435,18 @@ YYYY-MM-DD HH:MM {context['record_type']}
         # 尝试解析JSON响应
         try:
             import json
-            phrases = json.loads(response)
+            import re
+
+            # 清理响应内容：移除可能的Markdown代码块标记
+            cleaned_response = response.strip()
+
+            # 移除 ```json 和 ``` 标记
+            cleaned_response = re.sub(r'^```json\s*', '', cleaned_response, flags=re.DOTALL)
+            cleaned_response = re.sub(r'^```\s*', '', cleaned_response, flags=re.DOTALL)
+            cleaned_response = re.sub(r'\s*```$', '', cleaned_response, flags=re.DOTALL)
+
+            # 尝试解析清理后的JSON
+            phrases = json.loads(cleaned_response)
 
             # 验证返回格式
             if isinstance(phrases, list):
@@ -362,8 +461,14 @@ YYYY-MM-DD HH:MM {context['record_type']}
                 return validated_phrases
             else:
                 return []
-        except json.JSONDecodeError:
-            # 如果解析失败，返回空列表
-            print(f"AI返回的内容无法解析为JSON: {response}")
+        except json.JSONDecodeError as e:
+            # 如果解析失败，打印详细错误信息
+            print(f"AI返回的内容无法解析为JSON")
+            print(f"错误信息: {str(e)}")
+            print(f"原始响应: {response[:500]}...")  # 只打印前500字符
+            return []
+        except Exception as e:
+            print(f"解析过程中发生错误: {str(e)}")
+            print(f"原始响应: {response[:500]}...")
             return []
 

@@ -32,17 +32,28 @@ class AIServiceManager:
         # 初始化AI服务
         ai_config = config.get("ai_services", {})
         for provider, settings in ai_config.items():
-            if provider == "default":
+            # 跳过配置字段，只处理实际的服务提供商
+            if provider in ["default_service", "default"]:
+                continue
+
+            # 确保settings是字典类型
+            if not isinstance(settings, dict):
                 continue
 
             if settings.get("api_key"):
                 service_class = self._get_service_class(provider)
+
+                # 获取模型参数
+                model = settings.get("model")
+
+                # 创建服务实例
                 self.services[provider] = service_class(
                     api_key=settings["api_key"],
-                    model=settings.get("model")
+                    model=model
                 )
 
-                if settings.get("is_default") or ai_config.get("default") == provider:
+                # 设置默认服务
+                if settings.get("is_default") or ai_config.get("default_service") == provider:
                     self.default_service = provider
 
     def get_service(self, provider: str = None) -> Optional[AIService]:
