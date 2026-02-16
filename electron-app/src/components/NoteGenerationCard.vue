@@ -648,6 +648,33 @@ watch(recordMode, async (newMode) => {
 watch(() => props.patient?.hospital_number, () => {
   // 清除之前的批量选择
   clearSelection()
+
+  // 清空所有表单数据，防止上一个患者的数据被带入
+  // 1. 清空对话框表单
+  generateForm.value = {
+    recordDate: '',
+    recordType: '',
+    dailyCondition: '',
+    generatedContent: '',
+    dayNumber: 0,
+    existingNoteId: null
+  }
+
+  // 2. 清空临时记录表单
+  clearTemporaryForm()
+
+  // 3. 清空卡片表单数据和展开状态
+  cardForms.value.clear()
+  expandedCards.value.clear()
+  cardGeneratingStates.value.clear()
+  cardSavingStates.value.clear()
+
+  // 4. 关闭所有对话框
+  generateDialogVisible.value = false
+  editRecordDialogVisible.value = false
+  fullRecordDialogVisible.value = false
+
+  // 5. 重新加载时间轴数据
   if (recordMode.value === 'scheduled') {
     loadTimelineData()
   }

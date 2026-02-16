@@ -120,7 +120,10 @@ async function fetchReminders() {
 
   loading.value = true
   try {
-    const response = await axios.get(`http://127.0.0.1:8000/api/reminders/patient/${props.patient.hospital_number}`)
+    // 只获取未完成的提醒
+    const response = await axios.get(`http://127.0.0.1:8000/api/reminders/patient/${props.patient.hospital_number}`, {
+      params: { upcoming: true }
+    })
     reminders.value = response.data
 
     // 如果没有提醒，自动初始化
@@ -138,8 +141,10 @@ async function initializeReminders() {
   try {
     const response = await axios.post(`http://127.0.0.1:8000/api/reminders/patient/${props.patient.hospital_number}/initialize`)
     if (response.data.success && response.data.created_count > 0) {
-      // 重新加载提醒
-      const reminderResponse = await axios.get(`http://127.0.0.1:8000/api/reminders/patient/${props.patient.hospital_number}`)
+      // 重新加载提醒（只获取未完成的）
+      const reminderResponse = await axios.get(`http://127.0.0.1:8000/api/reminders/patient/${props.patient.hospital_number}`, {
+        params: { upcoming: true }
+      })
       reminders.value = reminderResponse.data
     }
   } catch (error) {

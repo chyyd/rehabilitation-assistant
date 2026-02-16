@@ -28,7 +28,7 @@ function createWindow() {
   // 开发环境加载Vite开发服务器
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-    mainWindow.webContents.openDevTools()
+    // mainWindow.webContents.openDevTools() // 已禁用开发者工具
   } else {
     // 生产环境加载打包后的文件
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))

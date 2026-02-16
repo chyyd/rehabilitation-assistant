@@ -15,7 +15,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import DBManager
 from ai_services import AIServiceManager
-from knowledge_base import KnowledgeBaseManager
+# 知识库功能可选（需要 chromadb）
+try:
+    from knowledge_base import KnowledgeBaseManager
+    KB_AVAILABLE = True
+except ImportError:
+    KB_AVAILABLE = False
+    print("Warning: chromadb not installed, knowledge base features disabled")
 
 # 全局管理器实例
 db_manager = None
@@ -35,23 +41,28 @@ async def lifespan(app: FastAPI):
     with open(config_path, 'r', encoding='utf-8') as f:
         config = json.load(f)
 
-    # 初始化数据库
-    db_manager = DBManager(config["app"]["database_path"])
+    # 初始化数据库 - 使用项目根目录的数据库文件
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    db_path = os.path.join(project_root, config["app"]["database_path"])
+    db_manager = DBManager(db_path)
     print("[OK] 数据库初始化完成")
 
     # 初始化AI服务
     ai_manager = AIServiceManager(config)
     print("[OK] AI服务初始化完成")
 
-    # 初始化知识库
-    if ai_manager.get_embedder():
+    # 初始化知识库（可选功能）
+    if KB_AVAILABLE and ai_manager.get_embedder():
         kb_manager = KnowledgeBaseManager(
             config["knowledge_base"],
             ai_manager.get_embedder()
         )
         print("[OK] 知识库初始化完成")
     else:
-        print("[WARN] 知识库未初始化（未配置Embedding服务）")
+        if not KB_AVAILABLE:
+            print("[WARN] 知识库未初始化（chromadb未安装）")
+        else:
+            print("[WARN] 知识库未初始化（未配置Embedding服务）")
         kb_manager = None
 
     # 将管理器存储在app state中以便路由访问

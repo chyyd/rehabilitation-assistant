@@ -108,10 +108,10 @@ async def generate_note(
         if not ai_service:
             raise HTTPException(status_code=400, detail="AI服务未配置")
 
-        # 计算住院天数
+        # 计算住院天数（入院当天算第1天，所以需要 +1）
         from datetime import date
         admission_date = patient.admission_date if isinstance(patient.admission_date, date) else patient.admission_date.date()
-        days_in_hospital = (date.today() - admission_date).days
+        days_in_hospital = (date.today() - admission_date).days + 1
 
         # 获取历史记录（最近2次）
         from database.models import ProgressNote

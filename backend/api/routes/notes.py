@@ -44,7 +44,7 @@ def get_session(request: Request):
 @router.get("/patient/{hospital_number}", response_model=List[NoteResponse])
 async def get_patient_notes(
     hospital_number: str,
-    limit: int = 10,
+    limit: int = 1000,  # 增加默认限制，确保返回所有记录
     session = Depends(get_session)
 ):
     """获取患者的病程记录"""
@@ -85,7 +85,7 @@ async def get_patient_notes(
 
 @router.post("/", response_model=NoteResponse)
 async def create_note(note: NoteCreate, session = Depends(get_session)):
-    """创建病程记录"""
+    """创建或更新病程记录（同一天只能有一条记录）"""
     try:
         from database.models import ProgressNote, Patient
 
@@ -100,33 +100,59 @@ async def create_note(note: NoteCreate, session = Depends(get_session)):
         # 计算住院天数
         day_number = (note.record_date - patient.admission_date).days + 1
 
-        # 创建病程记录
-        new_note = ProgressNote(
-            patient_id=patient.id,
-            hospital_number=note.hospital_number,
-            record_date=note.record_date,
-            day_number=day_number,
-            record_type=note.record_type,
-            daily_condition=note.daily_condition,
-            generated_content=note.generated_content,
-            is_edited=False
-        )
+        # 检查是否已有该日期的记录
+        existing_note = session.query(ProgressNote).filter(
+            ProgressNote.patient_id == patient.id,
+            ProgressNote.record_date == note.record_date
+        ).first()
 
-        session.add(new_note)
-        session.commit()
-        session.refresh(new_note)
+        if existing_note:
+            # 更新现有记录
+            existing_note.daily_condition = note.daily_condition
+            existing_note.generated_content = note.generated_content
+            existing_note.is_edited = True
+            session.commit()
+            session.refresh(existing_note)
 
-        return NoteResponse(
-            id=new_note.id,
-            hospital_number=new_note.hospital_number,
-            record_date=new_note.record_date,
-            day_number=new_note.day_number,
-            record_type=new_note.record_type,
-            daily_condition=new_note.daily_condition,
-            generated_content=new_note.generated_content,
-            is_edited=new_note.is_edited,
-            created_at=new_note.created_at
-        )
+            return NoteResponse(
+                id=existing_note.id,
+                hospital_number=existing_note.hospital_number,
+                record_date=existing_note.record_date,
+                day_number=existing_note.day_number,
+                record_type=existing_note.record_type,
+                daily_condition=existing_note.daily_condition,
+                generated_content=existing_note.generated_content,
+                is_edited=existing_note.is_edited,
+                created_at=existing_note.created_at
+            )
+        else:
+            # 创建新记录
+            new_note = ProgressNote(
+                patient_id=patient.id,
+                hospital_number=note.hospital_number,
+                record_date=note.record_date,
+                day_number=day_number,
+                record_type=note.record_type,
+                daily_condition=note.daily_condition,
+                generated_content=note.generated_content,
+                is_edited=False
+            )
+
+            session.add(new_note)
+            session.commit()
+            session.refresh(new_note)
+
+            return NoteResponse(
+                id=new_note.id,
+                hospital_number=new_note.hospital_number,
+                record_date=new_note.record_date,
+                day_number=new_note.day_number,
+                record_type=new_note.record_type,
+                daily_condition=new_note.daily_condition,
+                generated_content=new_note.generated_content,
+                is_edited=new_note.is_edited,
+                created_at=new_note.created_at
+            )
     except HTTPException:
         raise
     except Exception as e:

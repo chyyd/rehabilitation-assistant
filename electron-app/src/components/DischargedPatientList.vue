@@ -1,10 +1,5 @@
 <template>
   <div class="discharged-patient-list">
-    <div class="list-header">
-      <h3>出院患者</h3>
-      <el-badge :value="dischargedPatients.length" class="count-badge" />
-    </div>
-
     <div v-if="loading" class="loading">
       <el-skeleton :rows="3" animated />
     </div>
@@ -232,24 +227,6 @@ function formatDate(dateStr: string): string {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding: 0 5px;
-}
-
-.list-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.count-badge {
-  /* 去掉红色背景 */
 }
 
 .patient-cards {

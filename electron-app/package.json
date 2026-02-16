@@ -5,6 +5,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "web": "vite --config vite.web.config.ts",
     "build": "vue-tsc --noEmit && vite build && electron-builder",
     "preview": "vite preview",
     "build:win": "vite build && electron-builder --win"

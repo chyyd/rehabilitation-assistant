@@ -224,6 +224,10 @@ onUnmounted(() => {
 
 async function fetchReminderCount() {
   try {
+    // 先确保所有患者都有今日提醒
+    await axios.post('http://127.0.0.1:8000/api/reminders/initialize-all-today').catch(() => {})
+
+    // 再获取提醒数量
     const response = await axios.get('http://127.0.0.1:8000/api/reminders/today')
     reminderCount.value = response.data.length
   } catch (error) {

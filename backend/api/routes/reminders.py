@@ -35,33 +35,35 @@ async def get_today_reminders(
     priority: Optional[str] = None,
     session = Depends(get_session)
 ):
-    """获取今日提醒"""
+    """获取今日及未来的提醒"""
     try:
         from database.models import Reminder, Patient
         from sqlalchemy import and_
 
         today = date.today()
 
-        # 构建查询
+        # 构建查询 - 获取今日及未来的未完成提醒
         query = session.query(Reminder, Patient).join(
             Patient, Reminder.patient_id == Patient.id
         ).filter(
             and_(
-                Reminder.reminder_date == today,
+                Reminder.reminder_date >= today,  # 今日或未来
                 Reminder.is_completed == False
             )
         )
+
+        reminders = query.all()
 
         # 优先级过滤
         if priority:
             query = query.filter(Reminder.priority == priority)
 
-        # 按优先级排序
+        # 按提醒日期和优先级排序
         priority_order = {"紧急": 0, "高": 1, "中": 2, "低": 3}
         reminders = query.all()
 
         # 排序
-        reminders.sort(key=lambda x: priority_order.get(x[0].priority, 4))
+        reminders.sort(key=lambda x: (x[0].reminder_date, priority_order.get(x[0].priority, 4)))
 
         # 格式化返回
         result = []
@@ -212,6 +214,56 @@ async def mark_reminder_complete(
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/debug")
+async def debug_today_endpoint(
+    session = Depends(get_session)
+):
+    """调试今日提醒端点"""
+    from database.models import Reminder, Patient
+    from sqlalchemy import and_
+
+    today = date.today()
+
+    # 1. 检查数据库中所有未完成提醒
+    all_incomplete = session.query(Reminder).filter(Reminder.is_completed == False).all()
+
+    # 2. 检查所有符合条件（今日及未来）的提醒
+    query = session.query(Reminder, Patient).join(
+        Patient, Reminder.patient_id == Patient.id
+    ).filter(
+        and_(
+            Reminder.reminder_date >= today,
+            Reminder.is_completed == False
+        )
+    )
+    results = query.all()
+
+    return {
+        "today": str(today),
+        "all_incomplete_count": len(all_incomplete),
+        "all_incomplete": [
+            {
+                "id": r.id,
+                "patient_id": r.patient_id,
+                "description": r.description,
+                "date": str(r.reminder_date),
+                "completed": r.is_completed
+            }
+            for r in all_incomplete
+        ],
+        "filtered_count": len(results),
+        "filtered": [
+            {
+                "id": r.id,
+                "patient_id": r.patient_id,
+                "hospital_number": p.hospital_number,
+                "description": r.description,
+                "date": str(r.reminder_date)
+            }
+            for r, p in results
+        ]
+    }
+
 @router.delete("/{reminder_id}")
 async def delete_reminder(
     reminder_id: int,
@@ -296,7 +348,7 @@ async def initialize_patient_reminders(
     hospital_number: str,
     session = Depends(get_session)
 ):
-    """为患者初始化提醒（创建初始待办事项）"""
+    """为患者创建今日提醒（每天首次访问时调用）"""
     try:
         from database.models import Reminder, Patient
 
@@ -308,61 +360,63 @@ async def initialize_patient_reminders(
         if not patient:
             raise HTTPException(status_code=404, detail="患者不存在")
 
-        # 检查是否已有提醒
-        existing_count = session.query(Reminder).filter(
-            Reminder.patient_id == patient.id
+        # 检查今天是否已有提醒（而不是检查是否已有任何提醒）
+        today = date.today()
+        existing_today = session.query(Reminder).filter(
+            Reminder.patient_id == patient.id,
+            Reminder.reminder_date == today
         ).count()
 
-        if existing_count > 0:
+        if existing_today > 0:
             return {
                 "success": True,
-                "message": f"患者已有{existing_count}条提醒",
+                "message": f"患者今日已有{existing_today}条提醒",
                 "created_count": 0
             }
 
-        # 计算住院天数
-        days_in_hospital = (date.today() - patient.admission_date).days
+        # 计算住院天数（入院当天算第1天）
+        days_in_hospital = (today - patient.admission_date).days + 1
 
         # 根据住院天数创建提醒
         reminders_to_create = []
 
         # 紧急提醒：住院超过85天
-        if days_in_hospital >= 85:
+        if days_in_hospital > 85:
             reminders_to_create.append({
                 "reminder_type": "复查",
                 "reminder_date": date.today(),
-                "day_number": days_in_hospital + 1,
+                "day_number": days_in_hospital,
                 "description": f"{patient.name or patient.hospital_number} 住院已超过85天，建议安排复查评估",
                 "priority": "紧急"
             })
 
-        # 高优先级：住院3天内
-        if days_in_hospital <= 3:
+        # 高优先级：住院4天内（第1-4天）
+        if days_in_hospital <= 4:
             reminders_to_create.append({
                 "reminder_type": "评估",
                 "reminder_date": date.today(),
-                "day_number": days_in_hospital + 1,
-                "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital + 1}天，完成初次康复评估",
+                "day_number": days_in_hospital,
+                "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital}天，完成初次康复评估",
                 "priority": "高"
             })
 
-        # 入院第二天：查看检查
-        if days_in_hospital == 1:
+        # 入院第2天：查看检查
+        if days_in_hospital == 2:
             reminders_to_create.append({
                 "reminder_type": "检查",
                 "reminder_date": date.today(),
-                "day_number": days_in_hospital + 1,
+                "day_number": days_in_hospital,
                 "description": f"{patient.name or patient.hospital_number} 入院第2天，查看实验室检查和放射线检查结果",
                 "priority": "高"
             })
 
         # 每15天：评估恢复情况
-        if (days_in_hospital + 1) % 15 == 0:
+        if days_in_hospital % 15 == 0:
             reminders_to_create.append({
                 "reminder_type": "评估",
                 "reminder_date": date.today(),
-                "day_number": days_in_hospital + 1,
-                "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital + 1}天（15天周期），评估恢复情况",
+                "day_number": days_in_hospital,
+                "description": f"{patient.name or patient.hospital_number} 入院第{days_in_hospital}天（15天周期），评估恢复情况",
                 "priority": "高"
             })
 
@@ -370,7 +424,7 @@ async def initialize_patient_reminders(
         reminders_to_create.append({
             "reminder_type": "病程记录",
             "reminder_date": date.today(),
-            "day_number": days_in_hospital + 1,
+            "day_number": days_in_hospital,
             "description": f"完成{patient.name or patient.hospital_number}的病程记录",
             "priority": "中"
         })
@@ -395,6 +449,63 @@ async def initialize_patient_reminders(
         }
     except HTTPException:
         raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/initialize-all-today")
+async def initialize_all_today_reminders(session = Depends(get_session)):
+    """为所有在院患者创建今日提醒（前端启动时或切换到患者列表时调用）"""
+    try:
+        from database.models import Reminder, Patient
+
+        today = date.today()
+
+        # 获取所有在院患者
+        patients = session.query(Patient).filter(
+            Patient.discharge_date.is_(None)
+        ).all()
+
+        total_created = 0
+        skipped_count = 0
+
+        for patient in patients:
+            # 检查今天是否已有提醒
+            existing_today = session.query(Reminder).filter(
+                Reminder.patient_id == patient.id,
+                Reminder.reminder_date == today
+            ).count()
+
+            if existing_today > 0:
+                skipped_count += 1
+                continue
+
+            # 计算住院天数
+            days_in_hospital = (today - patient.admission_date).days + 1
+
+            # 只创建每日病程记录提醒
+            new_reminder = Reminder(
+                patient_id=patient.id,
+                hospital_number=patient.hospital_number,
+                reminder_type="病程记录",
+                reminder_date=today,
+                day_number=days_in_hospital,
+                description=f"完成{patient.name or patient.hospital_number}的病程记录",
+                priority="中",
+                is_completed=False
+            )
+            session.add(new_reminder)
+            total_created += 1
+
+        session.commit()
+
+        return {
+            "success": True,
+            "message": f"为{total_created}位患者创建了今日提醒，{skipped_count}位患者已有提醒",
+            "created_count": total_created,
+            "skipped_count": skipped_count
+        }
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))

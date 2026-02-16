@@ -91,11 +91,11 @@ async def get_patients(
         # 计算住院天数并转换为响应模型
         result = []
         for p in patients:
-            # 计算住院天数
+            # 计算住院天数（入院当天算第1天，所以需要 +1）
             if p.discharge_date:
-                days = (p.discharge_date - p.admission_date).days
+                days = (p.discharge_date - p.admission_date).days + 1
             else:
-                days = (datetime.now().date() - p.admission_date).days
+                days = (datetime.now().date() - p.admission_date).days + 1
 
             result.append(PatientResponse(
                 id=p.id,
@@ -130,11 +130,11 @@ async def get_patient(hospital_number: str, session = Depends(get_session)):
         if not patient:
             raise HTTPException(status_code=404, detail="患者不存在")
 
-        # 计算住院天数
+        # 计算住院天数（入院当天算第1天，所以需要 +1）
         if patient.discharge_date:
-            days = (patient.discharge_date - patient.admission_date).days
+            days = (patient.discharge_date - patient.admission_date).days + 1
         else:
-            days = (datetime.now().date() - patient.admission_date).days
+            days = (datetime.now().date() - patient.admission_date).days + 1
 
         return PatientResponse(
             id=patient.id,
@@ -176,8 +176,8 @@ async def create_patient(patient: PatientCreate, session = Depends(get_session))
         session.commit()
         session.refresh(new_patient)
 
-        # 计算住院天数
-        days = (datetime.now().date() - new_patient.admission_date).days
+        # 计算住院天数（入院当天算第1天，所以需要 +1）
+        days = (datetime.now().date() - new_patient.admission_date).days + 1
 
         return PatientResponse(
             id=new_patient.id,
@@ -227,11 +227,11 @@ async def update_patient(
         session.commit()
         session.refresh(existing_patient)
 
-        # 计算住院天数
+        # 计算住院天数（入院当天算第1天，所以需要 +1）
         if existing_patient.discharge_date:
-            days = (existing_patient.discharge_date - existing_patient.admission_date).days
+            days = (existing_patient.discharge_date - existing_patient.admission_date).days + 1
         else:
-            days = (datetime.now().date() - existing_patient.admission_date).days
+            days = (datetime.now().date() - existing_patient.admission_date).days + 1
 
         return PatientResponse(
             id=existing_patient.id,

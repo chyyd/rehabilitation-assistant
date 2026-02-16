@@ -2,11 +2,6 @@
   <div class="patient-list">
     <el-tabs v-model="activeTab" class="patient-tabs">
       <el-tab-pane label="在院患者" name="active">
-        <div class="list-header">
-          <h3>在院患者</h3>
-          <el-badge :value="activePatients.length" class="count-badge" />
-        </div>
-
         <div v-if="patientStore.loading" class="loading">
           <el-skeleton :rows="3" animated />
         </div>
@@ -54,25 +49,64 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { Edit } from '@element-plus/icons-vue'
 import { usePatientStore } from '@/stores/patient'
 import EditPatientDialog from './EditPatientDialog.vue'
 import DischargedPatientList from './DischargedPatientList.vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const patientStore = usePatientStore()
 const editDialogVisible = ref(false)
 const selectedPatient = ref<any>(null)
 const activeTab = ref('active')
 
+// 存储每个患者的今日未完成提醒数量
+const patientReminderCount = ref<Record<number, number>>({})
+
+// 定时刷新提醒
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
 // 组件挂载时加载患者数据
 onMounted(async () => {
+  // 先为所有在院患者创建今日提醒
+  await ensureTodayReminders()
   await patientStore.fetchPatients()
+  await loadTodayReminders()
+
+  // 每30秒自动刷新今日提醒，确保优先级实时更新
+  refreshTimer = setInterval(async () => {
+    if (activeTab.value === 'active') {
+      await loadTodayReminders()
+    }
+  }, 30000)
 })
 
-// 监听标签页切换，切换到出院患者时刷新数据
+// 确保所有在院患者都有今日提醒
+async function ensureTodayReminders() {
+  try {
+    await axios.post('http://127.0.0.1:8000/api/reminders/initialize-all-today')
+  } catch (error) {
+    // 静默失败，不影响用户体验
+    console.warn('初始化今日提醒失败:', error)
+  }
+}
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+})
+
+// 监听标签页切换，切换时刷新数据
 watch(activeTab, async (newTab) => {
+  // 切换到在院患者时，刷新今日提醒以更新优先级
+  if (newTab === 'active') {
+    await loadTodayReminders()
+  }
+  // 切换到出院患者时，刷新患者列表
   if (newTab === 'discharged') {
     await patientStore.fetchPatients()
   }
@@ -91,15 +125,61 @@ const sortedPatients = computed(() => {
   if (!activePatients.value || !Array.isArray(activePatients.value)) return []
 
   return [...activePatients.value].sort((a, b) => {
-    // 按住院天数倒序排列（天数最多的在最上面）
+    // 按优先级排序：紧急 > 高 > 正常
+    const priorityOrder = { urgent: 0, high: 1, normal: 2 }
+    const priorityA = priorityOrder[getPriority(a)] ?? 3
+    const priorityB = priorityOrder[getPriority(b)] ?? 3
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB
+    }
+
+    // 同优先级按住院天数倒序排列
     return b.days_in_hospital - a.days_in_hospital
   })
 })
 
+// 加载今日及未来的所有未完成提醒
+async function loadTodayReminders() {
+  try {
+    // 获取所有未完成的提醒（不限日期）
+    const response = await axios.get('http://127.0.0.1:8000/api/reminders/today')
+
+    console.log('[PatientList] 加载提醒成功，数量:', response.data.length)
+
+    // 统计每个患者的未完成提醒数量
+    const counts: Record<number, number> = {}
+
+    response.data.forEach((reminder: any) => {
+      console.log(`[PatientList] 提醒: ${reminder.description}, 日期: ${reminder.reminder_date}, 患者ID: ${reminder.patient_id}`)
+
+      // 统计所有未完成的提醒
+      if (!reminder.is_completed) {
+        counts[reminder.patient_id] = (counts[reminder.patient_id] || 0) + 1
+      }
+    })
+
+    console.log('[PatientList] 患者提醒统计:', counts)
+    patientReminderCount.value = counts
+  } catch (error) {
+    console.error('加载提醒失败:', error)
+  }
+}
+
 function getPriority(patient: any): string {
   const days = patient.days_in_hospital
+
+  // 优先级判断：
+  // 1. 住院85天以上 = 紧急（红色）🚨
   if (days >= 85) return 'urgent'
-  if (days <= 3) return 'high'
+
+  // 2. 检查是否有未完成的今日提醒
+  const hasPendingReminders = (patientReminderCount.value[patient.id] || 0) > 0
+
+  // 3. 有未完成任务 = 高（黄色）🟡
+  if (hasPendingReminders) return 'high'
+
+  // 4. 所有任务完成 = 正常（绿色）🟢
   return 'normal'
 }
 
@@ -123,8 +203,9 @@ function showEditDialog(patient: any) {
 }
 
 async function handleEditSuccess() {
-  // 重新加载患者列表
+  // 重新加载患者列表和提醒
   await patientStore.fetchPatients()
+  await loadTodayReminders()
   ElMessage.success('患者信息已更新')
 }
 
@@ -161,20 +242,6 @@ function handleUndoDischarge() {
 
 .patient-tabs :deep(.el-tab-pane) {
   height: 100%;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding: 0 5px;
-}
-
-.list-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .patient-cards {
