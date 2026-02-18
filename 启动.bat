@@ -8,7 +8,7 @@ echo.
 echo [1] Start All (Backend + Electron)
 echo [2] Start Backend Only
 echo [3] Start Frontend (Electron App)
-echo [4] Start Frontend (Web Browser)
+echo [4] Start Backend + Web (Browser)
 echo [5] Stop All Services
 echo [0] Exit
 echo.
@@ -51,10 +51,9 @@ goto end
 :startweb
 cls
 echo.
-echo Starting Web Frontend Server...
-echo Access URL: http://localhost:5173/
+echo Starting Backend + Web Frontend...
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-web-frontend.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-backend-and-web.ps1"
 goto end
 
 :stopall
