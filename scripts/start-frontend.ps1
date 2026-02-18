@@ -1,8 +1,9 @@
 # Start Frontend Script
 $ErrorActionPreference = "Continue"
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$FrontendDir = Join-Path $ScriptDir "electron-app"
+# 获取项目根目录和前端目录
+$ProjectRoot = $PSScriptRoot
+$FrontendDir = Join-Path $ProjectRoot "electron-app"
 
 # Wait for backend
 Write-Host "Waiting for backend..." -ForegroundColor Yellow
@@ -38,8 +39,9 @@ try {
 
     $ProcessId = $Process.Id
 
-    # Save PID
-    $ProcessId | Out-File -FilePath (Join-Path $ScriptDir ".frontend.pid") -Encoding UTF8
+    # Save PID to project root
+    $PidFile = Join-Path $ProjectRoot ".frontend.pid"
+    $ProcessId | Out-File -FilePath $PidFile -Encoding UTF8
 
     Write-Host "[OK] Frontend started!" -ForegroundColor Green
     Write-Host "     PID: $ProcessId" -ForegroundColor Cyan

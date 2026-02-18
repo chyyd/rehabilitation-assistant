@@ -7,13 +7,14 @@ Write-Host "  Stop All Services" -ForegroundColor Red
 Write-Host "========================================" -ForegroundColor Red
 Write-Host ""
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# 获取项目根目录（$PSScriptRoot 指向项目根目录）
+$ProjectRoot = $PSScriptRoot
 $Stopped = $false
 
 # Stop from PID files
 Write-Host "[1/2] Stopping from PID files..." -ForegroundColor Yellow
 
-$BackendPidFile = Join-Path $ScriptDir ".backend.pid"
+$BackendPidFile = Join-Path $ProjectRoot ".backend.pid"
 if (Test-Path $BackendPidFile) {
     try {
         $ProcessId = Get-Content $BackendPidFile -Raw
@@ -28,7 +29,7 @@ if (Test-Path $BackendPidFile) {
     } catch {}
 }
 
-$FrontendPidFile = Join-Path $ScriptDir ".frontend.pid"
+$FrontendPidFile = Join-Path $ProjectRoot ".frontend.pid"
 if (Test-Path $FrontendPidFile) {
     try {
         $ProcessId = Get-Content $FrontendPidFile -Raw

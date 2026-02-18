@@ -1,8 +1,9 @@
 # Start Backend Script
 $ErrorActionPreference = "Continue"
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
+# 获取项目根目录（脚本在 scripts/ 下，需要向上一级）
+$ProjectRoot = $PSScriptRoot
+Set-Location $ProjectRoot
 
 # Stop old process
 $OldProcess = Get-Process python -ErrorAction SilentlyContinue | Where-Object {
@@ -17,7 +18,7 @@ if ($OldProcess) {
 try {
     $Process = Start-Process -FilePath "python" `
         -ArgumentList "-m uvicorn backend.api_main:app --host 127.0.0.1 --port 8000" `
-        -WorkingDirectory $ScriptDir `
+        -WorkingDirectory $ProjectRoot `
         -WindowStyle Hidden `
         -PassThru
 
@@ -28,7 +29,8 @@ try {
     $Response = Test-NetConnection -ComputerName 127.0.0.1 -Port 8000 -InformationLevel Quiet
 
     if ($Response) {
-        $ProcessId | Out-File -FilePath ".backend.pid" -Encoding UTF8
+        $PidFile = Join-Path $ProjectRoot ".backend.pid"
+        $ProcessId | Out-File -FilePath $PidFile -Encoding UTF8
 
         Write-Host "[OK] Backend started successfully!" -ForegroundColor Green
         Write-Host "     PID: $ProcessId" -ForegroundColor Cyan
