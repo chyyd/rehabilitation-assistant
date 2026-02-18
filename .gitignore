@@ -62,6 +62,24 @@ Desktop.ini
 
 # 临时文件
 nul
+*.pid
+*.db
+*.sqlite
+*.sqlite3
+
+# 测试文件
+test_*.py
+check_*.py
+debug_*.py
+diagnose-*.py
+quick_test.py
+
+# 临时HTML/文档
+check-status.html
+启动指南.md
+
+# 进程文件
+.backend.pid
 
 # 文档生成的图片
 *.png
