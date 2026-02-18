@@ -27,7 +27,7 @@ cls
 echo.
 echo Starting all services (Backend + Electron)...
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0start-all.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-all.ps1"
 goto end
 
 :startbackend
@@ -36,7 +36,7 @@ echo.
 echo Starting backend service...
 echo Backend API: http://127.0.0.1:8000
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0start-backend.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-backend.ps1"
 pause
 goto end
 
@@ -45,7 +45,7 @@ cls
 echo.
 echo Starting Electron frontend...
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0start-frontend.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-frontend.ps1"
 goto end
 
 :startweb
@@ -54,7 +54,7 @@ echo.
 echo Starting Web Frontend Server...
 echo Access URL: http://localhost:5173/
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0start-web-frontend.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\start-web-frontend.ps1"
 goto end
 
 :stopall
@@ -62,7 +62,7 @@ cls
 echo.
 echo Stopping all services...
 echo.
-powershell.exe -ExecutionPolicy Bypass -File "%~dp0stop-all.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\stop-all.ps1"
 goto end
 
 :invalid
