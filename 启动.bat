@@ -5,19 +5,19 @@ echo ========================================
 echo   Rehab Assistant - Start Menu
 echo ========================================
 echo.
-echo [1] Start All (Backend + Electron)
+echo [1] Start Backend + Web (Browser)
 echo [2] Start Backend Only
 echo [3] Start Frontend (Electron App)
-echo [4] Start Backend + Web (Browser)
+echo [4] Start All (Backend + Electron)
 echo [5] Stop All Services
 echo [0] Exit
 echo.
 set /p choice=Select option (0-5):
 
-if "%choice%"=="1" goto startall
+if "%choice%"=="1" goto startweb
 if "%choice%"=="2" goto startbackend
 if "%choice%"=="3" goto startfrontend
-if "%choice%"=="4" goto startweb
+if "%choice%"=="4" goto startall
 if "%choice%"=="5" goto stopall
 if "%choice%"=="0" goto end
 goto invalid
