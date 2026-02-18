@@ -1,8 +1,8 @@
 # Start Frontend Script
 $ErrorActionPreference = "Continue"
 
-# 获取项目根目录和前端目录
-$ProjectRoot = $PSScriptRoot
+# 获取项目根目录和前端目录（脚本在 scripts/ 下）
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 $FrontendDir = Join-Path $ProjectRoot "electron-app"
 
 # Wait for backend

@@ -1,8 +1,9 @@
 # Launch All Script
 $ErrorActionPreference = "Stop"
 
-# 获取项目根目录（$PSScriptRoot 指向项目根目录）
-$ProjectRoot = $PSScriptRoot
+# 获取项目根目录（脚本在 scripts/ 下）
+$ScriptsDir = $PSScriptRoot
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 Write-Host ""
@@ -13,7 +14,7 @@ Write-Host ""
 
 # Start backend
 Write-Host "[1/2] Starting backend..." -ForegroundColor Yellow
-$BackendScript = Join-Path $ProjectRoot "scripts\start-backend.ps1"
+$BackendScript = Join-Path $ScriptsDir "start-backend.ps1"
 
 $BackendResult = & powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File $BackendScript
 
@@ -29,7 +30,7 @@ Write-Host ""
 
 # Start frontend
 Write-Host "[2/2] Starting frontend..." -ForegroundColor Yellow
-$FrontendScript = Join-Path $ProjectRoot "scripts\start-frontend.ps1"
+$FrontendScript = Join-Path $ScriptsDir "start-frontend.ps1"
 
 $FrontendResult = & powershell.exe -ExecutionPolicy Bypass -File $FrontendScript
 

@@ -7,8 +7,8 @@ Write-Host "  Stop All Services" -ForegroundColor Red
 Write-Host "========================================" -ForegroundColor Red
 Write-Host ""
 
-# 获取项目根目录（$PSScriptRoot 指向项目根目录）
-$ProjectRoot = $PSScriptRoot
+# 获取项目根目录（脚本在 scripts/ 下）
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Stopped = $false
 
 # Stop from PID files

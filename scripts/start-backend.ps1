@@ -2,7 +2,7 @@
 $ErrorActionPreference = "Continue"
 
 # 获取项目根目录（脚本在 scripts/ 下，需要向上一级）
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 # Stop old process
@@ -16,17 +16,31 @@ if ($OldProcess) {
 
 # Start backend
 try {
+    $Args = @("-m", "uvicorn", "backend.api_main:app", "--host", "127.0.0.1", "--port", "8000")
+    Write-Host "Starting: python $Args" -ForegroundColor Gray
+    Write-Host "WorkingDir: $ProjectRoot" -ForegroundColor Gray
+
     $Process = Start-Process -FilePath "python" `
-        -ArgumentList "-m uvicorn backend.api_main:app --host 127.0.0.1 --port 8000" `
+        -ArgumentList $Args `
         -WorkingDirectory $ProjectRoot `
         -WindowStyle Hidden `
         -PassThru
 
     $ProcessId = $Process.Id
-    Start-Sleep -Seconds 3
+    Write-Host "Process started with PID: $ProcessId" -ForegroundColor Yellow
+    Write-Host "Waiting 5 seconds for startup..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 5
+
+    # Check if process is still running
+    $RunningProcess = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $RunningProcess) {
+        Write-Host "[ERROR] Process exited unexpectedly!" -ForegroundColor Red
+        Write-Host "       Check if Python and dependencies are installed correctly" -ForegroundColor Yellow
+        exit 1
+    }
 
     # Check if backend is running
-    $Response = Test-NetConnection -ComputerName 127.0.0.1 -Port 8000 -InformationLevel Quiet
+    $Response = Test-NetConnection -ComputerName 127.0.0.1 -Port 8000 -InformationLevel Quiet -ErrorAction SilentlyContinue
 
     if ($Response) {
         $PidFile = Join-Path $ProjectRoot ".backend.pid"

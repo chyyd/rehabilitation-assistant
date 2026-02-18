@@ -1,8 +1,8 @@
 # Start Web Frontend Only (No Electron)
 # Independent Vite server for browser access
 
-# 获取项目根目录（从脚本位置向上两级）
-$ProjectRoot = $PSScriptRoot
+# 获取项目根目录和前端目录（脚本在 scripts/ 下）
+$ProjectRoot = Split-Path -Parent $PSScriptRoot
 $FrontendDir = Join-Path $ProjectRoot "electron-app"
 
 Write-Host "Starting Web Frontend Server..." -ForegroundColor Cyan
